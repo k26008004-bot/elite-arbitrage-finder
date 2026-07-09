@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; background: #f3f3f3; padding: 20px; }
+  .s-result-item { background: white; padding: 15px; margin-bottom: 20px; border-radius: 8px; max-width: 400px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  .productTitle { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+  .a-price-whole { font-size: 24px; }
+  .a-price-fraction { font-size: 14px; vertical-align: top; }
+</style>
+</head>
+<body>
+  <h2>Amazon Search Results (Mock)</h2>
+  <!-- Profitable Item ($20 Amazon, $32 Target eBay, Net Profit ~$2.64 depending on fees) Wait, 1.6x of $20 = $32.
+       eBay fees on $32 = ($32 * 16.15%) + $0.30 = $5.16 + $0.30 = $5.46. 
+       $32 - $5.46 - $6 - $1 - $20 = -$0.46 (Loss). 
+       Let's make a highly profitable item. $5 Amazon -> 1.6x = $8. Fees on $8 = $1.59. Shipping = $7. Loss. 
+       Let's just use $10 Amazon -> $50 eBay. Wait, our math forces targetMultiplier = 1.6. 
+       Let's change targetMultiplier in the test? No, the extension uses 1.6x.
+       If Target is 1.6x, High priced items work best. 
+       $200 Amazon -> $320 eBay. 
+       Fees on $320: 16.15% = $51.68 + 0.30 = $51.98.
+       $320 - $51.98 - 7 - 200 = $61.02 Profit!
+       So $200 is a winner. $10 is a loser. -->
+
+  <!-- Winner -->
+  <div class="s-result-item" data-asin="B09WINNER">
+    <div class="productTitle" id="productTitle">Sony WH-1000XM5 Headphones</div>
+    <div class="a-price">
+      $<span class="a-price-whole">199</span><span class="a-price-fraction">.99</span>
+    </div>
+  </div>
+
+  <!-- Loser -->
+  <div class="s-result-item" data-asin="B09LOSER">
+    <div class="productTitle" id="productTitle">Basic USB Cable</div>
+    <div class="a-price">
+      $<span class="a-price-whole">9</span><span class="a-price-fraction">.99</span>
+    </div>
+  </div>
+
+  <script>
+    // Mock the URL so the script thinks it's a search page
+    Object.defineProperty(window, 'location', {
+      value: { href: 'https://www.amazon.com/s?k=headphones' }
+    });
+    
+    // Mock chrome.storage.sync.get
+    window.chrome = {
+      storage: {
+        sync: {
+          get: (defaults, cb) => { cb(defaults); }
+        }
+      }
+    };
+  </script>
+</body>
+</html>

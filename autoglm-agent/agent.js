@@ -87,11 +87,12 @@ async function runAutoGLM() {
     }
   }
 
-  // Deterministic Handoff: Output the data
+  // Deterministic Handoff: Output the data to the React App's public folder
   console.log(`\n🏆 AutoGLM found ${winningProducts.length} high-margin arbitrage opportunities.`);
   
-  fs.writeFileSync('winning_products.json', JSON.stringify(winningProducts, null, 2));
-  console.log("💾 Saved results to winning_products.json");
+  const outputPath = require('path').join(__dirname, '../arbitrage-landing-page/public/winning_products.json');
+  fs.writeFileSync(outputPath, JSON.stringify(winningProducts, null, 2));
+  console.log("💾 Saved results to " + outputPath);
 
   // Elite Push Notifications
   if (winningProducts.length > 0 && process.env.DISCORD_WEBHOOK_URL) {

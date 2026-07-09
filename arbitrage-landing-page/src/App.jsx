@@ -1,20 +1,33 @@
-import React, { useEffect } from 'react';
-import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight, LayoutDashboard } from 'lucide-react';
+import Dashboard from './Dashboard';
 import './index.css';
 
 function App() {
+  const [view, setView] = useState('landing');
+
   return (
     <div className="app">
       <div className="container">
         <nav>
-          <div className="logo">
+          <div className="logo" onClick={() => setView('landing')} style={{cursor:'pointer'}}>
             <Target size={28} className="text-gradient" />
             Elite Arbitrage
           </div>
-          <button className="nav-cta">Download Extension</button>
+          <div style={{display: 'flex', gap: '16px'}}>
+            <button className="nav-cta" onClick={() => setView(view === 'landing' ? 'dashboard' : 'landing')} style={{background: 'transparent', border: '1px solid var(--glass-border)'}}>
+              <LayoutDashboard size={16} style={{marginRight: '8px', display: 'inline-block', verticalAlign: 'text-bottom'}} />
+              {view === 'landing' ? 'Live Dashboard' : 'Back to Home'}
+            </button>
+            <button className="nav-cta bg-gradient">Download Extension</button>
+          </div>
         </nav>
 
-        <section className="hero">
+        {view === 'dashboard' ? (
+          <Dashboard />
+        ) : (
+          <>
+            <section className="hero">
           <div className="hero-glow"></div>
           <h1>Arbitrage with <span className="text-gradient">Elite Precision.</span></h1>
           <p>
@@ -97,6 +110,8 @@ function App() {
           </div>
         </div>
       </section>
+      </>
+    )}
 
       <footer style={{textAlign: 'center', padding: '40px 0', borderTop: '1px solid var(--glass-border)', marginTop: '80px', color: 'var(--text-secondary)'}}>
         <p>© 2026 Elite Arbitrage. For Professional Specialists.</p>

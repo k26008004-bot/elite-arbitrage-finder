@@ -1,0 +1,42 @@
+name: AutoGLM Daily Arbitrage Scraper
+
+on:
+  schedule:
+    # Run at midnight UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allow manual triggering from the GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./autoglm-agent
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run AutoGLM Agent
+        run: node agent.js
+        
+      - name: Upload Winning Products
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if the scrape fails/returns 0 products
+        with:
+          name: winning-products-report
+          path: autoglm-agent/winning_products.json
+          retention-days: 7

@@ -5,12 +5,13 @@
   // Prevent multiple injections
   if (document.getElementById('elite-arbitrage-panel')) return;
 
-  const CONFIG = {
+  let CONFIG = {
     ebayFeeRate: 0.1325, // 13.25%
     paymentProcessingFee: 0.029, // 2.9%
     paymentFixedFee: 0.30, // $0.30
     defaultShipping: 6.00,
-    defaultPackaging: 1.00
+    defaultPackaging: 1.00,
+    targetMultiplier: 1.6
   };
 
   let productData = {
@@ -178,8 +179,23 @@
   // 4. Initialize
   // Only initialize on product pages
   if (document.getElementById('productTitle') || document.getElementById('dp')) {
-    scrapeAmazonData();
-    injectPanel();
+    chrome.storage.sync.get(
+      {
+        ebayFeeRate: 0.1325,
+        shippingCost: 6.00,
+        packagingCost: 1.00,
+        targetMultiplier: 1.6
+      },
+      (items) => {
+        CONFIG.ebayFeeRate = items.ebayFeeRate;
+        CONFIG.defaultShipping = items.shippingCost;
+        CONFIG.defaultPackaging = items.packagingCost;
+        CONFIG.targetMultiplier = items.targetMultiplier;
+        
+        scrapeAmazonData();
+        injectPanel();
+      }
+    );
   }
 
 })();

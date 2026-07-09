@@ -3,7 +3,12 @@
   "name": "Elite Arbitrage Finder",
   "version": "1.0",
   "description": "Professional Amazon to eBay arbitrage calculator and research tool.",
-  "permissions": ["storage"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "options_page": "options.html",
   "host_permissions": [
     "*://*.amazon.com/*"
   ],

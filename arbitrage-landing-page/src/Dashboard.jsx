@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity } from 'lucide-react';
 
 const Dashboard = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState('roi'); // 'roi', 'profit', 'cost'
+  const [minRoi, setMinRoi] = useState(0);
 
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      // Fetches the JSON file written by the GitHub Actions scraper
       const res = await fetch('/winning_products.json');
       if (!res.ok) throw new Error("Failed to fetch fresh leads");
       const data = await res.json();
@@ -25,6 +26,30 @@ const Dashboard = () => {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  // Compute Analytics
+  const parseROI = (roiStr) => parseFloat(roiStr.replace('%', ''));
+  const parseProfit = (profitStr) => parseFloat(profitStr);
+  
+  const analytics = useMemo(() => {
+    if (products.length === 0) return { avgRoi: 0, maxProfit: 0, total: 0 };
+    const total = products.length;
+    const avgRoi = products.reduce((acc, p) => acc + parseROI(p.roi), 0) / total;
+    const maxProfit = Math.max(...products.map(p => parseProfit(p.netProfit)));
+    return { avgRoi: avgRoi.toFixed(2), maxProfit: maxProfit.toFixed(2), total };
+  }, [products]);
+
+  // Filter and Sort Engine
+  const displayedProducts = useMemo(() => {
+    let filtered = products.filter(p => parseROI(p.roi) >= minRoi);
+    
+    return filtered.sort((a, b) => {
+      if (sortBy === 'roi') return parseROI(b.roi) - parseROI(a.roi);
+      if (sortBy === 'profit') return parseProfit(b.netProfit) - parseProfit(a.netProfit);
+      if (sortBy === 'cost') return parseFloat(a.price) - parseFloat(b.price);
+      return 0;
+    });
+  }, [products, sortBy, minRoi]);
 
   return (
     <div className="dashboard-container" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
@@ -49,6 +74,57 @@ const Dashboard = () => {
         </button>
       </div>
 
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ background: 'rgba(96, 165, 250, 0.1)', padding: '12px', borderRadius: '50%' }}><Activity color="#60a5fa" size={24}/></div>
+          <div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Total Active Leads</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{analytics.total}</div>
+          </div>
+        </div>
+        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ background: 'rgba(192, 132, 252, 0.1)', padding: '12px', borderRadius: '50%' }}><TrendingUp color="#c084fc" size={24}/></div>
+          <div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Average ROI</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{analytics.avgRoi}%</div>
+          </div>
+        </div>
+        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ background: 'rgba(74, 222, 128, 0.1)', padding: '12px', borderRadius: '50%' }}><DollarSign color="#4ade80" size={24}/></div>
+          <div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Highest Profit Margin</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>+${analytics.maxProfit}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '8px' }}>Sort By</label>
+          <select 
+            value={sortBy} 
+            onChange={e => setSortBy(e.target.value)}
+            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '6px' }}
+          >
+            <option value="roi">Highest ROI</option>
+            <option value="profit">Highest Net Profit</option>
+            <option value="cost">Lowest Buy Cost</option>
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '8px' }}>Minimum ROI Filter: {minRoi}%</label>
+          <input 
+            type="range" 
+            min="0" max="100" 
+            value={minRoi} 
+            onChange={e => setMinRoi(parseInt(e.target.value))}
+            style={{ width: '100%', marginTop: '8px' }}
+          />
+        </div>
+      </div>
+
       {error && (
         <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
           <AlertCircle size={20} />
@@ -56,14 +132,14 @@ const Dashboard = () => {
         </div>
       )}
 
-      {!loading && products.length === 0 && !error && (
+      {!loading && displayedProducts.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '60px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>No high-margin products found in the latest scan. AutoGLM will run again tonight.</p>
+          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>No leads match your current filters.</p>
         </div>
       )}
 
       <div style={{ display: 'grid', gap: '20px' }}>
-        {products.map((p, i) => (
+        {displayedProducts.map((p, i) => (
           <div key={i} style={{ 
             background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', 
             padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -75,7 +151,7 @@ const Dashboard = () => {
               <div style={{ display: 'flex', gap: '24px' }}>
                 <div>
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Buy (Amazon)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f87171' }}>${p.price.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f87171' }}>${parseFloat(p.price).toFixed(2)}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Sell (eBay)</div>

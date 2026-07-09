@@ -25,6 +25,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchLeads();
+    const interval = setInterval(() => {
+      fetchLeads();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Compute Analytics

@@ -1,0 +1,186 @@
+/* Elite Arbitrage Finder - Premium UI */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+#elite-arbitrage-panel {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 360px;
+  background: rgba(18, 18, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  z-index: 999999;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #ffffff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#elite-arbitrage-panel.hidden {
+  transform: translateY(150%);
+}
+
+.eap-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eap-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eap-close {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 18px;
+  transition: color 0.2s;
+}
+
+.eap-close:hover {
+  color: #fff;
+}
+
+.eap-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eap-label {
+  font-size: 13px;
+  color: #a0a0a5;
+  font-weight: 500;
+}
+
+.eap-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.eap-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eap-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.eap-currency {
+  position: absolute;
+  left: 12px;
+  color: #888;
+  font-size: 14px;
+}
+
+.eap-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px 10px 24px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.eap-input:focus {
+  border-color: #00C9FF;
+  box-shadow: 0 0 0 3px rgba(0, 201, 255, 0.15);
+}
+
+.eap-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.eap-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 201, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(0, 201, 255, 0.1);
+}
+
+.eap-profit-val {
+  font-size: 24px;
+  font-weight: 700;
+  color: #92FE9D;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.eap-roi-val {
+  font-size: 13px;
+  color: #00C9FF;
+  font-weight: 600;
+}
+
+.eap-negative {
+  color: #FF5A5A;
+}
+
+.eap-negative-roi {
+  color: #FF8A8A;
+}
+
+.eap-btn {
+  background: linear-gradient(90deg, #4776E6 0%, #8E54E9 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+
+.eap-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(142, 84, 233, 0.3);
+}
+
+.eap-btn:active {
+  transform: translateY(0);
+}

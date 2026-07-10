@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight, LayoutDashboard, Lock, Key } from 'lucide-react';
 import Dashboard from './Dashboard';
 import './index.css';
 
 function App() {
   const [view, setView] = useState('landing');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pin, setPin] = useState('');
+  const [loginError, setLoginError] = useState(false);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (pin === 'ELITE2026') {
+      setIsAuthenticated(true);
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+      setPin('');
+    }
+  };
 
   return (
     <div className="app">
@@ -24,7 +38,37 @@ function App() {
         </nav>
 
         {view === 'dashboard' ? (
-          <Dashboard />
+          isAuthenticated ? (
+            <Dashboard />
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+              <div className="glass-panel" style={{ padding: '40px', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+                <Lock size={48} className="text-gradient" style={{ margin: '0 auto 20px auto' }} />
+                <h2 style={{ marginBottom: '10px' }}>Elite Security Gateway</h2>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>Enter your specialist PIN to access the live dashboard.</p>
+                <form onSubmit={handleLogin}>
+                  <div style={{ position: 'relative', marginBottom: '20px' }}>
+                    <Key size={20} style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-secondary)' }} />
+                    <input 
+                      type="password" 
+                      placeholder="Enter PIN..." 
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      style={{ 
+                        width: '100%', padding: '12px 16px 12px 48px', 
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', 
+                        borderRadius: '8px', color: 'white', fontSize: '16px' 
+                      }} 
+                    />
+                  </div>
+                  {loginError && <p style={{ color: '#ef4444', marginBottom: '15px', fontSize: '14px' }}>Access Denied. Invalid PIN.</p>}
+                  <button type="submit" className="cta-button bg-gradient" style={{ width: '100%' }}>
+                    Unlock Dashboard
+                  </button>
+                </form>
+              </div>
+            </div>
+          )
         ) : (
           <section className="hero">
             <div className="hero-glow"></div>

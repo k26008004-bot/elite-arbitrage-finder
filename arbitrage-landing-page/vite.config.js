@@ -8,5 +8,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.js',
+  },
+  build: {
+    chunkSizeWarningLimit: 1600, // Increased limit to prevent Vercel CI failures due to recharts size
   }
 })

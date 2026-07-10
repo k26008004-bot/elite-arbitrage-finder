@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd arbitrage-landing-page && npm install --legacy-peer-deps && npm run build",
+  "buildCommand": "echo 'Skipping Vercel build, using pre-built dist folder'",
   "outputDirectory": "arbitrage-landing-page/dist",
   "rewrites": [
     {

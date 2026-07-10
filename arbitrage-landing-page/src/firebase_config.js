@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth";
 
 // ELITE SPECIALIST: PASTE YOUR FIREBASE PROJECT CONFIGURATION HERE
 // Example:
@@ -25,11 +26,13 @@ const firebaseConfig = {
 
 let app = null;
 let db = null;
+let auth = null;
 
 // Only initialize if the user actually pasted the config
 if (firebaseConfig.apiKey) {
   app = initializeApp(firebaseConfig);
   db = getDatabase(app);
+  auth = getAuth(app);
 }
 
-export { db };
+export { db, auth };

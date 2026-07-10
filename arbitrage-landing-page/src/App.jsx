@@ -1,22 +1,31 @@
-import React, { useState } from 'react';
-import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight, LayoutDashboard, Lock, Key } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingCart, Calculator, Target, Activity, ShieldCheck, ChevronRight, LayoutDashboard, Lock, Key, LogOut } from 'lucide-react';
 import Dashboard from './Dashboard';
+import Login from './Login';
 import './index.css';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebase_config';
 
 function App() {
   const [view, setView] = useState('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pin, setPin] = useState('');
-  const [loginError, setLoginError] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (pin === 'ELITE2026') {
-      setIsAuthenticated(true);
-      setLoginError(false);
+  useEffect(() => {
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoadingAuth(false);
+      });
+      return () => unsubscribe();
     } else {
-      setLoginError(true);
-      setPin('');
+      setLoadingAuth(false);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
     }
   };
 
@@ -33,41 +42,26 @@ function App() {
               <LayoutDashboard size={16} style={{marginRight: '8px', display: 'inline-block', verticalAlign: 'text-bottom'}} />
               {view === 'landing' ? 'Live Dashboard' : 'Back to Home'}
             </button>
-            <button className="nav-cta bg-gradient">Download Extension</button>
+            {user && view === 'dashboard' ? (
+              <button className="nav-cta" onClick={handleLogout} style={{background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171'}}>
+                <LogOut size={16} style={{marginRight: '8px', display: 'inline-block', verticalAlign: 'text-bottom'}} />
+                Sign Out
+              </button>
+            ) : (
+              <button className="nav-cta bg-gradient">Download Extension</button>
+            )}
           </div>
         </nav>
 
         {view === 'dashboard' ? (
-          isAuthenticated ? (
+          loadingAuth ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+              <div style={{ color: '#94a3b8' }}>Loading Security Gateway...</div>
+            </div>
+          ) : user ? (
             <Dashboard />
           ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-              <div className="glass-panel" style={{ padding: '40px', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
-                <Lock size={48} className="text-gradient" style={{ margin: '0 auto 20px auto' }} />
-                <h2 style={{ marginBottom: '10px' }}>Elite Security Gateway</h2>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>Enter your specialist PIN to access the live dashboard.</p>
-                <form onSubmit={handleLogin}>
-                  <div style={{ position: 'relative', marginBottom: '20px' }}>
-                    <Key size={20} style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-secondary)' }} />
-                    <input 
-                      type="password" 
-                      placeholder="Enter PIN..." 
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      style={{ 
-                        width: '100%', padding: '12px 16px 12px 48px', 
-                        background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', 
-                        borderRadius: '8px', color: 'white', fontSize: '16px' 
-                      }} 
-                    />
-                  </div>
-                  {loginError && <p style={{ color: '#ef4444', marginBottom: '15px', fontSize: '14px' }}>Access Denied. Invalid PIN.</p>}
-                  <button type="submit" className="cta-button bg-gradient" style={{ width: '100%' }}>
-                    Unlock Dashboard
-                  </button>
-                </form>
-              </div>
-            </div>
+            <Login />
           )
         ) : (
           <section className="hero">

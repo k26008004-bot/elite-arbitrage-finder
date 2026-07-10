@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search, BarChart2 } from 'lucide-react';
+import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search, BarChart2, Cloud } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ref, onValue } from 'firebase/database';
+import { db } from './firebase_config';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('live'); // 'live' | 'vault'
@@ -36,16 +38,51 @@ const Dashboard = () => {
 
   // Run fetch when tab changes
   useEffect(() => {
-    fetchLeads(activeTab);
-  }, [activeTab]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (activeTab === 'live') {
-        fetchLeads('live');
-      }
-    }, 5000);
-    return () => clearInterval(interval);
+    // If Firebase is configured, use it
+    if (db) {
+      setLoading(true);
+      const dbPath = activeTab === 'live' ? 'winning_products' : 'archive';
+      const dealsRef = ref(db, dbPath);
+      
+      const unsubscribe = onValue(dealsRef, (snapshot) => {
+        const data = snapshot.val();
+        let parsedData = [];
+        
+        if (data) {
+          // If data is an array
+          if (Array.isArray(data)) {
+            parsedData = data;
+          } else {
+            // If data is an object, convert to array
+            parsedData = Object.values(data);
+          }
+        }
+        
+        // Trigger Toast for new deals in live mode
+        if (activeTab === 'live' && products.length > 0 && parsedData.length > 0 && products[0].asin !== parsedData[0].asin) {
+          setToastMsg(`🚀 Cloud Deal Found: ${parsedData[0].title.substring(0, 40)}...`);
+          setTimeout(() => setToastMsg(null), 5000);
+        }
+        
+        setProducts(parsedData);
+        setLoading(false);
+        setError(null);
+      }, (err) => {
+        setError("Firebase Sync Error: " + err.message);
+        setLoading(false);
+      });
+      
+      return () => unsubscribe();
+    } else {
+      // Fallback to local JSON polling if Firebase is not configured
+      fetchLeads(activeTab);
+      const interval = setInterval(() => {
+        if (activeTab === 'live') {
+          fetchLeads('live');
+        }
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [activeTab]);
 
   // Compute Analytics
@@ -104,6 +141,11 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Activity size={36} className="text-gradient" /> 
+          Dashboard 
+          {db && <Cloud size={24} color="#4ade80" title="Connected to Firebase Cloud" style={{ marginLeft: '10px' }} />}
+        </h1>
         <div>
           <h2 style={{ fontSize: '32px', margin: '0 0 8px 0', background: 'linear-gradient(to right, #60a5fa, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {activeTab === 'live' ? 'Live Arbitrage Leads' : 'Permanent Deals Vault'}

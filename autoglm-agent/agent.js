@@ -1,5 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
+const { db } = require('./firebase_config');
 
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
   ? require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) 
@@ -128,6 +129,18 @@ async function runAutoGLM() {
     if (newItemsAdded > 0) {
       console.log(`🗄️ Vault Updated: Added ${newItemsAdded} new deals to Permanent Archive.`);
     }
+
+    // CLOUD SYNC: Push to Firebase if configured
+    if (db) {
+      try {
+        await db.ref('winning_products').set(winningProducts);
+        await db.ref('archive').set(archive);
+        console.log(`☁️ Firebase Cloud Sync Complete. Pushed Live & Vault Deals.`);
+      } catch (fbErr) {
+        console.error("❌ Firebase Cloud Sync Failed: ", fbErr.message);
+      }
+    }
+
   } catch (err) {
     console.log("❌ Failed to update Archive Vault: " + err.message);
   }

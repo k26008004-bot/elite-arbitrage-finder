@@ -14,7 +14,13 @@ import { getDatabase } from "firebase/database";
 // };
 
 const firebaseConfig = {
-  // PASTE KEYS HERE
+  apiKey: "AIzaSyB71cDR24C5X-R3DIqjTbPZZDeJEHRF8gM",
+  authDomain: "elite-arbitrage-vault.firebaseapp.com",
+  databaseURL: "https://elite-arbitrage-vault-default-rtdb.firebaseio.com",
+  projectId: "elite-arbitrage-vault",
+  storageBucket: "elite-arbitrage-vault.firebasestorage.app",
+  messagingSenderId: "314088347615",
+  appId: "1:314088347615:web:6895e0ee47af8b67f5966a"
 };
 
 let app = null;

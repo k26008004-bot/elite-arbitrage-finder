@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search, BarChart2, Cloud } from 'lucide-react';
+import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search, BarChart2, Cloud, Filter } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ref, onValue } from 'firebase/database';
 import { db } from './firebase_config';
@@ -10,8 +10,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('roi'); // 'roi', 'profit', 'cost'
-  const [minRoi, setMinRoi] = useState(0);
   const [toastMsg, setToastMsg] = useState(null);
+  
+  // Advanced Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [minRoi, setMinRoi] = useState(0);
 
   const fetchLeads = async (tab = activeTab) => {
     try {
@@ -90,11 +93,12 @@ const Dashboard = () => {
   const parseProfit = (profitStr) => parseFloat(profitStr);
   
   const analytics = useMemo(() => {
-    if (products.length === 0) return { avgRoi: 0, maxProfit: 0, total: 0 };
+    if (products.length === 0) return { avgRoi: 0, maxProfit: 0, avgProfit: 0, total: 0 };
     const total = products.length;
     const avgRoi = products.reduce((acc, p) => acc + parseROI(p.roi), 0) / total;
+    const avgProfit = products.reduce((acc, p) => acc + parseProfit(p.netProfit), 0) / total;
     const maxProfit = Math.max(...products.map(p => parseProfit(p.netProfit)));
-    return { avgRoi: avgRoi.toFixed(2), maxProfit: maxProfit.toFixed(2), total };
+    return { avgRoi: avgRoi.toFixed(2), avgProfit: avgProfit.toFixed(2), maxProfit: maxProfit.toFixed(2), total };
   }, [products]);
 
   // CSV Export Engine
@@ -115,8 +119,12 @@ const Dashboard = () => {
   };
 
   // Filter and Sort Engine
-  const displayedProducts = useMemo(() => {
-    let filtered = products.filter(p => parseROI(p.roi) >= minRoi);
+  const filteredProducts = useMemo(() => {
+    let filtered = products.filter(p => {
+      const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) || p.asin.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRoi = parseROI(p.roi) >= minRoi;
+      return matchesSearch && matchesRoi;
+    });
     
     return filtered.sort((a, b) => {
       if (sortBy === 'roi') return parseROI(b.roi) - parseROI(a.roi);
@@ -124,7 +132,7 @@ const Dashboard = () => {
       if (sortBy === 'cost') return parseFloat(a.price) - parseFloat(b.price);
       return 0;
     });
-  }, [products, sortBy, minRoi]);
+  }, [products, sortBy, minRoi, searchTerm]);
 
   // Prepare Chart Data
   const chartData = useMemo(() => {
@@ -210,53 +218,50 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: 'rgba(96, 165, 250, 0.1)', padding: '12px', borderRadius: '50%' }}><Activity color="#60a5fa" size={24}/></div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Total Active Leads</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{analytics.total}</div>
-          </div>
+      {/* Analytics Summary */}
+      <div className="analytics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid #60a5fa', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Total Leads Found</div>
+          <div style={{ fontSize: '24px', fontWeight: 700 }}>{products.length}</div>
         </div>
-        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: 'rgba(192, 132, 252, 0.1)', padding: '12px', borderRadius: '50%' }}><TrendingUp color="#c084fc" size={24}/></div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Average ROI</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{analytics.avgRoi}%</div>
-          </div>
+        <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid #4ade80', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Average ROI</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#4ade80' }}>{analytics.avgRoi}%</div>
         </div>
-        <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: 'rgba(74, 222, 128, 0.1)', padding: '12px', borderRadius: '50%' }}><DollarSign color="#4ade80" size={24}/></div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Highest Profit Margin</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>+${analytics.maxProfit}</div>
-          </div>
+        <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid #c084fc', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Avg Net Profit/Item</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#c084fc' }}>${analytics.avgProfit}</div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '8px' }}>Sort By</label>
-          <select 
-            value={sortBy} 
-            onChange={e => setSortBy(e.target.value)}
-            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '6px' }}
-          >
-            <option value="roi">Highest ROI</option>
-            <option value="profit">Highest Net Profit</option>
-            <option value="cost">Lowest Buy Cost</option>
-          </select>
+      {/* Advanced Filter Bar */}
+      <div className="glass-panel" style={{ display: 'flex', gap: '20px', padding: '15px 20px', marginBottom: '30px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '250px' }}>
+          <Search size={18} color="#94a3b8" />
+          <input 
+            type="text" 
+            placeholder="Search ASIN or Title..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ 
+              background: 'transparent', border: 'none', color: 'white', 
+              fontSize: '15px', width: '100%', outline: 'none' 
+            }}
+          />
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '8px' }}>Minimum ROI Filter: {minRoi}%</label>
+        <div style={{ height: '24px', width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Filter size={18} color="#94a3b8" />
+            <span style={{ fontSize: '14px', color: '#94a3b8' }}>Min ROI:</span>
+            <span style={{ fontWeight: 600, color: '#4ade80' }}>{minRoi}%</span>
+          </div>
           <input 
             type="range" 
             min="0" max="100" 
             value={minRoi} 
-            onChange={e => setMinRoi(parseInt(e.target.value))}
-            style={{ width: '100%', marginTop: '8px' }}
+            onChange={(e) => setMinRoi(Number(e.target.value))}
+            style={{ width: '120px' }}
           />
         </div>
       </div>
@@ -265,12 +270,6 @@ const Dashboard = () => {
         <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
           <AlertCircle size={20} />
           {error}
-        </div>
-      )}
-
-      {!loading && displayedProducts.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '60px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', marginBottom: '24px' }}>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>{activeTab === 'live' ? 'No leads match your current filters.' : 'The Deals Vault is currently empty.'}</p>
         </div>
       )}
 
@@ -344,7 +343,14 @@ const Dashboard = () => {
       )}
 
       <div style={{ display: 'grid', gap: '20px' }}>
-        {displayedProducts.map((p, i) => (
+        {filteredProducts.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+            <Search size={48} style={{ margin: '0 auto 20px auto', opacity: 0.2 }} />
+            <h3>No Deals Match Your Filters</h3>
+            <p style={{ color: '#94a3b8' }}>Try lowering your minimum ROI or clearing the search term.</p>
+          </div>
+        ) : (
+          filteredProducts.map((p, i) => (
           <div key={i} style={{ 
             background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', 
             padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',

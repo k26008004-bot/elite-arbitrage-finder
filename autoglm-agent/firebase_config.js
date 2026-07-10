@@ -4,7 +4,7 @@ const admin = require("firebase-admin");
 // Save the downloaded JSON file as `firebase-service-account.json` in this folder (autoglm-agent).
 // Once saved, set ENABLE_CLOUD_SYNC to true.
 
-const ENABLE_CLOUD_SYNC = false;
+const ENABLE_CLOUD_SYNC = true;
 
 let db = null;
 
@@ -13,7 +13,7 @@ if (ENABLE_CLOUD_SYNC) {
     const serviceAccount = require("./firebase-service-account.json");
     
     // REPLACE THIS URL with your actual database URL
-    const DATABASE_URL = "https://YOUR-PROJECT-ID-default-rtdb.firebaseio.com";
+    const DATABASE_URL = "https://elite-arbitrage-vault-default-rtdb.firebaseio.com";
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),

@@ -21,14 +21,27 @@ async function runAutoGLM() {
   const winningProducts = [];
   
   try {
-    const response = await fetch('https://www.reddit.com/r/amazondealsus/new.json?limit=50', {
-      headers: { 'User-Agent': 'Mozilla/5.0 EliteArbitrage/1.0' }
-    });
+    const response = await fetch('https://www.reddit.com/r/amazondealsus/new.rss');
     
     if (!response.ok) throw new Error("API Blocked or Unavailable");
     
-    const data = await response.json();
-    const posts = data.data.children;
+    const xmlText = await response.text();
+    const entries = xmlText.split('<entry>');
+    const posts = [];
+    
+    // Skip index 0 as it's the XML header
+    for (let i = 1; i < entries.length; i++) {
+      const titleMatch = entries[i].match(/<title>(.*?)<\/title>/);
+      const urlMatch = entries[i].match(/<link href="([^"]+)"/);
+      if (titleMatch && urlMatch) {
+        posts.push({
+          data: {
+            title: titleMatch[1],
+            url: urlMatch[1]
+          }
+        });
+      }
+    }
     
     for (const post of posts) {
       const titleData = post.data.title;

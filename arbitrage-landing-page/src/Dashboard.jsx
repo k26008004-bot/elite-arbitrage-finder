@@ -137,10 +137,47 @@ const Dashboard = () => {
       )}
 
       {!loading && displayedProducts.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '60px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+        <div style={{ textAlign: 'center', padding: '60px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', marginBottom: '24px' }}>
           <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>No leads match your current filters.</p>
         </div>
       )}
+
+      {/* Sourcing Toolkit */}
+      <div style={{ marginBottom: '32px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px' }}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.25rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Activity size={20} /> Professional Sourcing Toolkit
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+          <a href="https://keepa.com/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>Keepa <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Amazon price history charts & alerts</div>
+          </a>
+          <a href="https://camelcamelcamel.com/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>CamelCamelCamel <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Free Amazon price tracker alternative</div>
+          </a>
+          <a href="https://www.terapeak.com/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>eBay Terapeak <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>eBay sold price data & insights</div>
+          </a>
+          <a href="https://www.zikanalytics.com/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>ZIK Analytics <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Arbitrage-specific product finder</div>
+          </a>
+          <a href="https://tacticalarbitrage.com/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>TacticalArbitrage <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Scans Amazon vs eBay for price gaps</div>
+          </a>
+          <a href="https://www.reddit.com/r/Flipping/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>r/Flipping <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Community intelligence on trending flips</div>
+          </a>
+          <a href="https://www.reddit.com/r/legodeal/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} className="tool-card">
+            <div style={{ color: 'white', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>r/legodeal <ExternalLink size={14} color="#94a3b8" /></div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>LEGO-specific deal alerts & tracking</div>
+          </a>
+        </div>
+      </div>
 
       <div style={{ display: 'grid', gap: '20px' }}>
         {displayedProducts.map((p, i) => (

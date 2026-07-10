@@ -22,7 +22,13 @@ async function runAutoGLM() {
   const winningProducts = [];
   
   try {
-    const response = await fetch('https://www.reddit.com/r/amazondealsus/new.rss');
+    const response = await fetch('https://www.reddit.com/r/amazondealsus/new.rss', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      }
+    });
     
     if (!response.ok) throw new Error("API Blocked or Unavailable");
     
@@ -202,11 +208,11 @@ async function startContinuousEngine() {
   // Run immediately first
   await runAutoGLM().catch(console.error);
   
-  // Then run every 15 seconds
+  // Then run every 60 seconds to avoid IP bans
   setInterval(() => {
-    console.log("\n⏳ [15s TICK] Triggering next live scan...");
+    console.log("\n⏳ [60s TICK] Triggering next live scan...");
     runAutoGLM().catch(console.error);
-  }, 15000);
+  }, 60000);
 }
 
 startContinuousEngine();

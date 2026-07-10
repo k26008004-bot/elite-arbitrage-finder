@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd arbitrage-landing-page && npm install --legacy-peer-deps && CI=false npm run build",
+  "buildCommand": "cd arbitrage-landing-page && npm install && npm run build",
   "outputDirectory": "arbitrage-landing-page/dist",
   "rewrites": [
     {

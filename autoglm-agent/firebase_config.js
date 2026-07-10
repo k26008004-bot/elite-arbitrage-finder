@@ -1,4 +1,5 @@
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getDatabase } = require("firebase-admin/database");
 
 // ELITE SPECIALIST: To enable Cloud Sync, generate a new private key from Firebase Project Settings -> Service Accounts.
 // Save the downloaded JSON file as `firebase-service-account.json` in this folder (autoglm-agent).
@@ -15,12 +16,12 @@ if (ENABLE_CLOUD_SYNC) {
     // REPLACE THIS URL with your actual database URL
     const DATABASE_URL = "https://elite-arbitrage-vault-default-rtdb.firebaseio.com";
 
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    const app = initializeApp({
+      credential: cert(serviceAccount),
       databaseURL: DATABASE_URL
     });
 
-    db = admin.database();
+    db = getDatabase(app);
     console.log("[Elite Cloud] Connected to Firebase Realtime Database.");
   } catch (err) {
     console.error("[Elite Cloud] Failed to initialize Firebase:", err.message);

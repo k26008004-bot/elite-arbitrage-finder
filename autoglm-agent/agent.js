@@ -102,6 +102,36 @@ async function runAutoGLM() {
     fs.writeFileSync(outputPath2, JSON.stringify(winningProducts, null, 2));
   } catch(e) {}
   
+  // ---> NEW DEALS VAULT (HISTORY ARCHIVE) LOGIC <---
+  try {
+    const archivePath = require('path').join(__dirname, '../arbitrage-landing-page/public/archive.json');
+    let archive = [];
+    if (fs.existsSync(archivePath)) {
+      archive = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
+    }
+    
+    // Append new products, ensuring no duplicate ASINs
+    let newItemsAdded = 0;
+    for (const deal of winningProducts) {
+      if (!archive.find(p => p.asin === deal.asin)) {
+        deal.timestamp = new Date().toISOString();
+        archive.unshift(deal); // Add to the top
+        newItemsAdded++;
+      }
+    }
+    
+    // Limit vault to top 1000 items
+    if (archive.length > 1000) archive = archive.slice(0, 1000);
+    
+    fs.writeFileSync(archivePath, JSON.stringify(archive, null, 2));
+    
+    if (newItemsAdded > 0) {
+      console.log(`🗄️ Vault Updated: Added ${newItemsAdded} new deals to Permanent Archive.`);
+    }
+  } catch (err) {
+    console.log("❌ Failed to update Archive Vault: " + err.message);
+  }
+
   console.log("💾 Saved results to Dashboard.");
 
   if (winningProducts.length > 0 && twilioClient && process.env.TWILIO_WHATSAPP_NUMBER) {

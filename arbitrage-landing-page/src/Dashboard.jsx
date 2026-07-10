@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search } from 'lucide-react';
 
 const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState('live'); // 'live' | 'vault'
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -9,15 +10,16 @@ const Dashboard = () => {
   const [minRoi, setMinRoi] = useState(0);
   const [toastMsg, setToastMsg] = useState(null);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (tab = activeTab) => {
     try {
       setLoading(true);
-      const res = await fetch('/winning_products.json');
-      if (!res.ok) throw new Error("Failed to fetch fresh leads");
+      const url = tab === 'live' ? '/winning_products.json' : '/archive.json';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch leads");
       const data = await res.json();
       
-      // Check for new deals to trigger toast
-      if (products.length > 0 && data.length > 0 && products[0].asin !== data[0].asin) {
+      // Check for new deals to trigger toast (only in live mode)
+      if (tab === 'live' && products.length > 0 && data.length > 0 && products[0].asin !== data[0].asin) {
         setToastMsg(`🚀 New Deal Found: ${data[0].title.substring(0, 40)}...`);
         setTimeout(() => setToastMsg(null), 5000);
       }
@@ -31,13 +33,19 @@ const Dashboard = () => {
     }
   };
 
+  // Run fetch when tab changes
   useEffect(() => {
-    fetchLeads();
+    fetchLeads(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      fetchLeads();
+      if (activeTab === 'live') {
+        fetchLeads('live');
+      }
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTab]);
 
   // Compute Analytics
   const parseROI = (roiStr) => parseFloat(roiStr.replace('%', ''));
@@ -82,12 +90,14 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ fontSize: '32px', margin: '0 0 8px 0', background: 'linear-gradient(to right, #60a5fa, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Live Arbitrage Leads
+            {activeTab === 'live' ? 'Live Arbitrage Leads' : 'Permanent Deals Vault'}
           </h2>
-          <p style={{ color: '#94a3b8', margin: 0 }}>AutoGLM Scraper continuously sources high-margin products daily.</p>
+          <p style={{ color: '#94a3b8', margin: 0 }}>
+            {activeTab === 'live' ? 'AutoGLM Scraper continuously sources high-margin products daily.' : 'Historical archive of all profitable products discovered by AutoGLM.'}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
@@ -103,7 +113,7 @@ const Dashboard = () => {
             Export CSV
           </button>
           <button 
-            onClick={fetchLeads} 
+            onClick={() => fetchLeads(activeTab)} 
             disabled={loading}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '8px', 
@@ -115,6 +125,34 @@ const Dashboard = () => {
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Tabs UI */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
+        <button 
+          onClick={() => setActiveTab('live')}
+          style={{
+            background: activeTab === 'live' ? 'rgba(96, 165, 250, 0.2)' : 'transparent',
+            border: activeTab === 'live' ? '1px solid rgba(96, 165, 250, 0.5)' : '1px solid transparent',
+            color: activeTab === 'live' ? '#60a5fa' : '#94a3b8',
+            padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+            display: 'flex', alignItems: 'center', gap: '8px'
+          }}
+        >
+          <Activity size={18} /> Live Radar
+        </button>
+        <button 
+          onClick={() => setActiveTab('vault')}
+          style={{
+            background: activeTab === 'vault' ? 'rgba(192, 132, 252, 0.2)' : 'transparent',
+            border: activeTab === 'vault' ? '1px solid rgba(192, 132, 252, 0.5)' : '1px solid transparent',
+            color: activeTab === 'vault' ? '#c084fc' : '#94a3b8',
+            padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+            display: 'flex', alignItems: 'center', gap: '8px'
+          }}
+        >
+          <TrendingUp size={18} /> Deals Vault
+        </button>
       </div>
 
       {/* KPI Cards */}
@@ -177,11 +215,12 @@ const Dashboard = () => {
 
       {!loading && displayedProducts.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '60px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', marginBottom: '24px' }}>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>No leads match your current filters.</p>
+          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>{activeTab === 'live' ? 'No leads match your current filters.' : 'The Deals Vault is currently empty.'}</p>
         </div>
       )}
 
-      {/* Sourcing Toolkit */}
+      {/* Sourcing Toolkit (Only visible in Live mode) */}
+      {activeTab === 'live' && (
       <div style={{ marginBottom: '32px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '24px', borderRadius: '12px' }}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '1.25rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Activity size={20} /> Professional Sourcing Toolkit
@@ -217,6 +256,7 @@ const Dashboard = () => {
           </a>
         </div>
       </div>
+      )}
 
       <div style={{ display: 'grid', gap: '20px' }}>
         {displayedProducts.map((p, i) => (
@@ -226,7 +266,10 @@ const Dashboard = () => {
             boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>ASIN: {p.asin}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>ASIN: {p.asin}</div>
+                {p.timestamp && <div style={{ fontSize: '0.8rem', color: '#60a5fa' }}>Found: {new Date(p.timestamp).toLocaleString()}</div>}
+              </div>
               <h3 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 600 }}>{p.title}</h3>
               <div style={{ display: 'flex', gap: '24px' }}>
                 <div>

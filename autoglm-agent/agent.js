@@ -119,4 +119,17 @@ async function runAutoGLM() {
   }
 }
 
-runAutoGLM().catch(console.error);
+async function startContinuousEngine() {
+  console.log("🚀 Starting Elite Arbitrage Continuous Engine...");
+  
+  // Run immediately first
+  await runAutoGLM().catch(console.error);
+  
+  // Then run every 15 seconds
+  setInterval(() => {
+    console.log("\n⏳ [15s TICK] Triggering next live scan...");
+    runAutoGLM().catch(console.error);
+  }, 15000);
+}
+
+startContinuousEngine();

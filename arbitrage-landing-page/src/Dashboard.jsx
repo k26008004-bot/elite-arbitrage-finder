@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity } from 'lucide-react';
+import { ExternalLink, RefreshCw, AlertCircle, TrendingUp, DollarSign, Activity, Download, Search } from 'lucide-react';
 
 const Dashboard = () => {
   const [products, setProducts] = useState([]);
@@ -7,6 +7,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('roi'); // 'roi', 'profit', 'cost'
   const [minRoi, setMinRoi] = useState(0);
+  const [toastMsg, setToastMsg] = useState(null);
 
   const fetchLeads = async () => {
     try {
@@ -14,6 +15,13 @@ const Dashboard = () => {
       const res = await fetch('/winning_products.json');
       if (!res.ok) throw new Error("Failed to fetch fresh leads");
       const data = await res.json();
+      
+      // Check for new deals to trigger toast
+      if (products.length > 0 && data.length > 0 && products[0].asin !== data[0].asin) {
+        setToastMsg(`🚀 New Deal Found: ${data[0].title.substring(0, 40)}...`);
+        setTimeout(() => setToastMsg(null), 5000);
+      }
+      
       setProducts(data);
       setError(null);
     } catch (err) {
@@ -43,6 +51,23 @@ const Dashboard = () => {
     return { avgRoi: avgRoi.toFixed(2), maxProfit: maxProfit.toFixed(2), total };
   }, [products]);
 
+  // CSV Export Engine
+  const downloadCSV = () => {
+    if (products.length === 0) return;
+    const headers = ['ASIN', 'Title', 'Amazon Price', 'Est eBay Price', 'Net Profit', 'ROI'];
+    const rows = products.map(p => [
+      p.asin, `"${p.title.replace(/"/g, '""')}"`, p.price, p.estimatedEbayPrice, p.netProfit, p.roi
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `elite_arbitrage_leads_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Filter and Sort Engine
   const displayedProducts = useMemo(() => {
     let filtered = products.filter(p => parseROI(p.roi) >= minRoi);
@@ -64,18 +89,32 @@ const Dashboard = () => {
           </h2>
           <p style={{ color: '#94a3b8', margin: 0 }}>AutoGLM Scraper continuously sources high-margin products daily.</p>
         </div>
-        <button 
-          onClick={fetchLeads} 
-          disabled={loading}
-          style={{ 
-            display: 'flex', alignItems: 'center', gap: '8px', 
-            background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
-            color: 'white', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' 
-          }}
-        >
-          <RefreshCw size={18} className={loading ? 'spin' : ''} />
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={downloadCSV} 
+            disabled={products.length === 0}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '8px', 
+              background: 'rgba(74, 222, 128, 0.1)', border: '1px solid rgba(74, 222, 128, 0.3)',
+              color: '#4ade80', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 
+            }}
+          >
+            <Download size={18} />
+            Export CSV
+          </button>
+          <button 
+            onClick={fetchLeads} 
+            disabled={loading}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '8px', 
+              background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
+              color: 'white', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' 
+            }}
+          >
+            <RefreshCw size={18} className={loading ? 'spin' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -206,22 +245,53 @@ const Dashboard = () => {
               <div style={{ fontSize: '2rem', fontWeight: 800, color: '#60a5fa', marginBottom: '4px' }}>+${parseFloat(p.netProfit).toFixed(2)}</div>
               <div style={{ fontSize: '1rem', color: '#c084fc', fontWeight: 600, marginBottom: '16px' }}>{p.roi} ROI</div>
               
-              <a 
-                href={`https://www.amazon.com/dp/${p.asin}`} 
-                target="_blank" 
-                rel="noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '8px', 
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', padding: '10px 20px', 
-                  borderRadius: '8px', color: 'white', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem'
-                }}
-              >
-                Source Deal <ExternalLink size={16} />
-              </a>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <a 
+                  href={`https://www.amazon.com/dp/${p.asin}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', 
+                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', padding: '10px 20px', 
+                    borderRadius: '8px', color: 'white', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem'
+                  }}
+                >
+                  Source Deal <ExternalLink size={16} />
+                </a>
+                <a 
+                  href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(p.title)}+sold&_sacat=0&LH_Sold=1&LH_Complete=1`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', 
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', 
+                    borderRadius: '8px', color: 'white', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem', transition: 'background 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  eBay Comps <Search size={16} />
+                </a>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div style={{
+          position: 'fixed', bottom: '30px', right: '30px', 
+          background: 'rgba(18, 18, 20, 0.9)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(96, 165, 250, 0.5)', borderRadius: '12px',
+          padding: '16px 24px', color: 'white', fontWeight: 600,
+          boxShadow: '0 20px 40px rgba(0, 201, 255, 0.2), 0 0 20px rgba(96, 165, 250, 0.1)',
+          animation: 'slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+          zIndex: 9999
+        }}>
+          {toastMsg}
+        </div>
+      )}
     </div>
   );
 };

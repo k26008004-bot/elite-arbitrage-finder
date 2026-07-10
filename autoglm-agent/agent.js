@@ -1,6 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
-const { db } = require('./firebase_config');
+const { db, DISCORD_WEBHOOK_URL } = require('./firebase_config');
 
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
   ? require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) 
@@ -159,6 +159,40 @@ async function runAutoGLM() {
     }
   } else if (!twilioClient) {
     console.log("⚠️ Twilio credentials missing in .env. WhatsApp alert skipped.");
+  }
+
+  // DISCORD BOT INTEGRATION
+  if (winningProducts.length > 0 && DISCORD_WEBHOOK_URL && DISCORD_WEBHOOK_URL.trim() !== "") {
+    console.log("🤖 Pushing Elite Alert to Discord Server...");
+    const topLead = winningProducts[0];
+    const embedPayload = {
+      content: "🚨 **NEW ELITE ARBITRAGE DEAL FOUND!** 🚨",
+      embeds: [{
+        title: topLead.title.substring(0, 250),
+        url: `https://amazon.com/dp/${topLead.asin}`,
+        color: 3447003, // Blue
+        fields: [
+          { name: "🛒 Amazon Buy Price", value: `$${topLead.price}`, inline: true },
+          { name: "🔴 eBay Est. Sale", value: `$${topLead.estimatedEbayPrice}`, inline: true },
+          { name: " ", value: " ", inline: false },
+          { name: "💰 Net Profit", value: `+$${topLead.netProfit}`, inline: true },
+          { name: "📈 ROI", value: `${topLead.roi}`, inline: true }
+        ],
+        footer: { text: `ASIN: ${topLead.asin} | Elite Arbitrage Bot` },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    try {
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(embedPayload)
+      });
+      console.log("✅ Discord Embed Card Sent Successfully!");
+    } catch (err) {
+      console.log(`❌ Failed to send Discord Webhook: ${err.message}`);
+    }
   }
 }
 

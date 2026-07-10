@@ -27,4 +27,7 @@ if (ENABLE_CLOUD_SYNC) {
   }
 }
 
-module.exports = { db };
+// ELITE SPECIALIST: PASTE YOUR DISCORD WEBHOOK URL HERE
+const DISCORD_WEBHOOK_URL = "";
+
+module.exports = { db, DISCORD_WEBHOOK_URL };

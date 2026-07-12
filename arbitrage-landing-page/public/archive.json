@@ -1,5 +1,50 @@
 [
   {
+    "asin": "B0892P3R6W",
+    "title": "Sony WH-1000XM4 Wireless Premium Noise Canceling Overhead Headphones",
+    "price": 119.73,
+    "estimatedEbayPrice": "191.57",
+    "netProfit": "34.19",
+    "roi": "28.56%",
+    "timestamp": "2026-07-10T13:01:51.109Z"
+  },
+  {
+    "asin": "B0CHWR89XY",
+    "title": "Samsung 980 PRO SSD 2TB PCIe NVMe Gen 4 Gaming M.2",
+    "price": 92.8,
+    "estimatedEbayPrice": "148.48",
+    "netProfit": "24.92",
+    "roi": "26.85%",
+    "timestamp": "2026-07-10T13:01:34.182Z"
+  },
+  {
+    "asin": "B09V3HX1GQ",
+    "title": "Nintendo Switch OLED Model - White Joy-Con",
+    "price": 43.99,
+    "estimatedEbayPrice": "70.38",
+    "netProfit": "8.13",
+    "roi": "18.48%",
+    "timestamp": "2026-07-10T13:00:26.585Z"
+  },
+  {
+    "asin": "B07ZPKN6YR",
+    "title": "Dyson V11 Cordless Stick Vacuum Cleaner",
+    "price": 62.65,
+    "estimatedEbayPrice": "100.24",
+    "netProfit": "14.55",
+    "roi": "23.22%",
+    "timestamp": "2026-07-10T12:59:51.145Z"
+  },
+  {
+    "asin": "B0C9N7TFFG",
+    "title": "Apple AirPods Pro (2nd Gen) Wireless Earbuds",
+    "price": 76.33,
+    "estimatedEbayPrice": "122.13",
+    "netProfit": "19.26",
+    "roi": "25.23%",
+    "timestamp": "2026-07-10T12:58:51.155Z"
+  },
+  {
     "asin": "B0B94S7X8L",
     "title": "Ninja Foodi 8 Quart 9-in-1 DualZone Air Fryer",
     "price": 35.73,

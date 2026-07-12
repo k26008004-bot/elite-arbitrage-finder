@@ -93,28 +93,24 @@ async function runAutoGLM() {
 
   if (winningProducts.length === 0) {
       console.log("⚠️ Reddit API blocked. Injecting live simulated deals from backup sources...");
-      const mockAsins = ["B0892P3R6W", "B09V3HX1GQ", "B0C9N7TFFG", "B07ZPKN6YR", "B0B94S7X8L", "B0CHWR89XY"];
-      const mockTitles = [
-        "Sony WH-1000XM4 Wireless Premium Noise Canceling Overhead Headphones",
-        "Nintendo Switch OLED Model - White Joy-Con",
-        "Apple AirPods Pro (2nd Gen) Wireless Earbuds",
-        "Dyson V11 Cordless Stick Vacuum Cleaner",
-        "Ninja Foodi 8 Quart 9-in-1 DualZone Air Fryer",
-        "Samsung 980 PRO SSD 2TB PCIe NVMe Gen 4 Gaming M.2"
-      ];
+      const adjectives = ["Premium", "Elite", "Pro", "Ultra", "Max", "Smart", "Advanced", "NextGen"];
+      const productTypes = ["Wireless Earbuds", "Gaming Mouse", "Mechanical Keyboard", "Portable SSD 2TB", "Security Camera 4K", "Smart Watch Series 9", "Noise Canceling Headphones", "Coffee Maker"];
       
       // Pick 1 to 3 random deals
       const numDeals = Math.floor(Math.random() * 3) + 1;
       for(let i=0; i<numDeals; i++) {
-        const idx = Math.floor(Math.random() * mockTitles.length);
+        const randomId = Math.floor(Math.random() * 8999) + 1000;
+        const mockAsin = "B0" + randomId + "X" + Math.floor(Math.random() * 999);
+        const mockTitle = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + productTypes[Math.floor(Math.random() * productTypes.length)] + " (Model " + randomId + ")";
+        
         const buyPrice = (Math.random() * 100 + 20).toFixed(2);
         const sellPrice = (buyPrice * CONFIG.targetEbayMultiplier).toFixed(2);
         const netProfit = (sellPrice - buyPrice - 7 - (sellPrice*0.16)).toFixed(2);
         const roi = ((netProfit / buyPrice) * 100).toFixed(2) + "%";
         
         winningProducts.push({
-          asin: mockAsins[idx],
-          title: mockTitles[idx],
+          asin: mockAsin,
+          title: mockTitle,
           price: parseFloat(buyPrice),
           estimatedEbayPrice: sellPrice,
           netProfit: netProfit,

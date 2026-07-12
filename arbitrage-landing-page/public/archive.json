@@ -1,5 +1,50 @@
 [
   {
+    "asin": "B01384X33",
+    "title": "Pro Coffee Maker (Model 1384)",
+    "price": 76.58,
+    "estimatedEbayPrice": "122.53",
+    "netProfit": "19.35",
+    "roi": "25.27%",
+    "timestamp": "2026-07-12T10:54:39.649Z"
+  },
+  {
+    "asin": "B05434X162",
+    "title": "Max Mechanical Keyboard (Model 5434)",
+    "price": 94.15,
+    "estimatedEbayPrice": "150.64",
+    "netProfit": "25.39",
+    "roi": "26.97%",
+    "timestamp": "2026-07-12T10:54:39.649Z"
+  },
+  {
+    "asin": "B03510X987",
+    "title": "Max Mechanical Keyboard (Model 3510)",
+    "price": 24.19,
+    "estimatedEbayPrice": "38.70",
+    "netProfit": "1.32",
+    "roi": "5.46%",
+    "timestamp": "2026-07-12T10:54:02.971Z"
+  },
+  {
+    "asin": "B04488X26",
+    "title": "NextGen Wireless Earbuds (Model 4488)",
+    "price": 47.49,
+    "estimatedEbayPrice": "75.98",
+    "netProfit": "9.33",
+    "roi": "19.65%",
+    "timestamp": "2026-07-12T10:54:02.969Z"
+  },
+  {
+    "asin": "B02895X276",
+    "title": "Max Smart Watch Series 9 (Model 2895)",
+    "price": 84.6,
+    "estimatedEbayPrice": "135.36",
+    "netProfit": "22.10",
+    "roi": "26.12%",
+    "timestamp": "2026-07-12T10:52:57.039Z"
+  },
+  {
     "asin": "B0892P3R6W",
     "title": "Sony WH-1000XM4 Wireless Premium Noise Canceling Overhead Headphones",
     "price": 119.73,

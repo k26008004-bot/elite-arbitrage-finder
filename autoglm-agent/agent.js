@@ -1,6 +1,9 @@
 require('dotenv').config();
 const fs = require('fs');
 const { db, DISCORD_WEBHOOK_URL } = require('./firebase_config');
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth);
 
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
   ? require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) 
@@ -19,56 +22,56 @@ async function runAutoGLM() {
   console.log("🌐 Booting AutoGLM Browser Agent [LIVE API ENGINE MODE]...");
   console.log("⚡ Fetching Real-Time deals from Amazon community feeds...");
 
-  const winningProducts = [];
+  let winningProducts = [];
   
   try {
-    const response = await fetch('https://www.reddit.com/r/amazondealsus/new.rss', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
-      }
+    console.log("🕵️‍♂️ Deploying Stealth Browser to Amazon.com...");
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
+    const page = await context.newPage();
     
-    if (!response.ok) throw new Error("API Blocked or Unavailable");
+    // Cycle through profitable search queries
+    const searchQueries = ["clearance electronics", "discount home goods", "overstock toys", "video games sale"];
+    const query = searchQueries[Math.floor(Math.random() * searchQueries.length)];
+    console.log(`🔍 Searching for: "${query}"`);
     
-    const xmlText = await response.text();
-    const entries = xmlText.split('<entry>');
-    const posts = [];
+    await page.goto(`https://www.amazon.com/s?k=${encodeURIComponent(query)}&s=price-desc-rank`, { waitUntil: 'domcontentloaded', timeout: 45000 });
     
-    // Skip index 0 as it's the XML header
-    for (let i = 1; i < entries.length; i++) {
-      const titleMatch = entries[i].match(/<title>(.*?)<\/title>/);
-      const urlMatch = entries[i].match(/<link href="([^"]+)"/);
-      if (titleMatch && urlMatch) {
-        posts.push({
-          data: {
-            title: titleMatch[1],
-            url: urlMatch[1]
-          }
-        });
-      }
-    }
+    // Wait for the main product grid
+    await page.waitForSelector('div[data-asin]', { timeout: 15000 });
     
-    for (const post of posts) {
-      const titleData = post.data.title;
-      const url = post.data.url;
-      
-      const priceMatch = titleData.match(/\$([0-9]+\.[0-9]{2})/);
-      let price = priceMatch ? parseFloat(priceMatch[1]) : null;
-      
-      if (!price) {
-        const altMatch = titleData.match(/(?:for\s)?([0-9]+\.[0-9]{2})/);
-        if (altMatch) price = parseFloat(altMatch[1]);
-      }
-      
-      if (price && price > 0 && titleData.length > 10) {
-        let cleanTitle = titleData.replace(/\[.*?\]/g, '').replace(/\$([0-9]+\.[0-9]{2})/, '').replace(/%/, '').trim();
-        let asin = "UNKNOWN";
-        const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/);
-        if (asinMatch) asin = asinMatch[1];
-        else asin = "LIVE-" + Math.floor(Math.random()*100000);
+    // Extract real data from the DOM
+    const scrapedProducts = await page.$$eval('div[data-component-type="s-search-result"]', elements => {
+      return elements.map(el => {
+        const asin = el.getAttribute('data-asin');
+        const titleEl = el.querySelector('h2 a span');
+        const priceEl = el.querySelector('.a-price .a-offscreen');
         
+        if (asin && titleEl && priceEl) {
+          return {
+            asin: asin,
+            title: titleEl.innerText,
+            priceStr: priceEl.innerText
+          };
+        }
+        return null;
+      }).filter(p => p !== null && p.asin.length > 5);
+    });
+
+    if (scrapedProducts.length === 0) {
+      await page.screenshot({ path: 'amazon_debug.png' });
+      console.log("📸 Saved debug screenshot to amazon_debug.png");
+    }
+
+    await browser.close();
+    console.log(`✅ Scraper completed successfully. Found ${scrapedProducts.length} raw listings.`);
+
+    // Run Elite Arbitrage Algorithm on scraped data
+    for (const p of scrapedProducts) {
+      const price = parseFloat(p.priceStr.replace(/[^0-9.]/g, ''));
+      if (price > 10 && price < 300) { // Filter out junk and extremely expensive items
         const estimatedEbayPrice = price * CONFIG.targetEbayMultiplier;
         const totalPercentageFee = CONFIG.ebayFeeRate + CONFIG.paymentProcessingFee;
         const ebayFees = (estimatedEbayPrice * totalPercentageFee) + CONFIG.paymentFixedFee;
@@ -77,8 +80,8 @@ async function runAutoGLM() {
 
         if (netProfit > 2 && roi > 10) {
           winningProducts.push({
-            asin: asin,
-            title: cleanTitle.substring(0, 80),
+            asin: p.asin,
+            title: p.title.substring(0, 150),
             price: price,
             estimatedEbayPrice: estimatedEbayPrice.toFixed(2),
             netProfit: netProfit.toFixed(2),
@@ -88,7 +91,7 @@ async function runAutoGLM() {
       }
     }
   } catch (e) {
-    console.log(`❌ API Failure: ${e.message}`);
+    console.log(`❌ Scraper Bot Detection/Timeout: ${e.message}`);
   }
 
   if (winningProducts.length === 0) {

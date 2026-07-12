@@ -1,283 +1,519 @@
-require('dotenv').config();
-const fs = require('fs');
-const { db, DISCORD_WEBHOOK_URL } = require('./firebase_config');
+/**
+ * agent.js — MASTER ORCHESTRATOR
+ * Amazon → eBay Arbitrage Elite Product Hunting Engine
+ *
+ * Pipeline (per product):
+ *   1. Launch Playwright (stealth browser)
+ *   2. Scrape Amazon product detail (ASIN-level)
+ *   3. Cross-search eBay sold + completed listings
+ *   4. Match products (UPC exact → fuzzy title)
+ *   5. Calculate true profit (real eBay sold data)
+ *   6. Score opportunity (0–100 multi-factor)
+ *   7. Save to Firebase + alert Discord
+ *   8. Repeat for next product
+ *
+ * Usage:
+ *   node agent.js                                    # Scan default ASIN list
+ *   node agent.js --asin B0XXXXXXX,B0YYYYYYY          # Scan specific ASINs
+ *   node agent.js --category "Electronics" --limit 10 # Category scan
+ *   DRY_RUN=false node agent.js                       # Production mode (real eBay)
+ *
+ * Dependencies:
+ *   npm install playwright playwright-extra puppeteer-extra-plugin-stealth fuzzball firebase-admin
+ */
+
 const { chromium } = require('playwright-extra');
-const stealth = require('puppeteer-extra-plugin-stealth')();
-chromium.use(stealth);
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
-  ? require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) 
-  : null;
+const config = require('./config');
+const AmazonScraper = require('./amazon_scraper');
+const EbayScraper = require('./ebay_scraper');
+const EbaySimulator = require('./simulator');
+const ProductMatcher = require('./product_matcher');
+const ProfitCalculator = require('./profit_calculator');
+const ScoringEngine = require('./scoring_engine');
+const FirebaseService = require('./firebase_service');
+const DiscordWebhook = require('./discord_webhook');
 
-const CONFIG = {
-  ebayFeeRate: 0.1325,
-  paymentProcessingFee: 0.029,
-  paymentFixedFee: 0.30,
-  defaultShipping: 6.00,
-  defaultPackaging: 1.00,
-  targetEbayMultiplier: 1.6 
-};
+// ── Apply stealth plugin ────────────────────────────────
+chromium.use(StealthPlugin());
 
-async function runAutoGLM() {
-  console.log("🌐 Booting AutoGLM Browser Agent [LIVE API ENGINE MODE]...");
-  console.log("⚡ Fetching Real-Time deals from Amazon community feeds...");
+// ═══════════════════════════════════════════════════════════
+//  ARBITRAGE ENGINE
+// ═══════════════════════════════════════════════════════════
 
-  let winningProducts = [];
-  
-  try {
-    console.log("🕵️‍♂️ Deploying Stealth Browser to Amazon.com...");
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    });
-    const page = await context.newPage();
-    
-    // Cycle through profitable search queries
-    const searchQueries = ["clearance electronics", "discount home goods", "overstock toys", "video games sale"];
-    const query = searchQueries[Math.floor(Math.random() * searchQueries.length)];
-    console.log(`🔍 Searching for: "${query}"`);
-    
-    await page.goto(`https://www.amazon.com/s?k=${encodeURIComponent(query)}&s=price-desc-rank`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    
-    // Extract ASIN links from the DOM
-    let rawListings = await page.$$eval('div[data-component-type="s-search-result"]', elements => {
-      return elements.map(el => el.getAttribute('data-asin')).filter(asin => asin && asin.length > 5);
-    });
+class ArbitrageEngine {
+  constructor() {
+    this.browser = null;
+    this.context = null;
+    this.amazonScraper = null;
+    this.ebayScraper = null;
+    this.simulator = new EbaySimulator();
+    this.matcher = new ProductMatcher();
+    this.calculator = new ProfitCalculator();
+    this.scorer = new ScoringEngine();
+    this.firebase = new FirebaseService();
+    this.discord = new DiscordWebhook();
 
-    if (rawListings.length === 0) {
-      await page.screenshot({ path: 'amazon_debug.png' });
-      console.log("📸 Saved debug screenshot to amazon_debug.png");
-    } else {
-      console.log(`✅ Found ${rawListings.length} raw ASINs. Deep diving top 3 for Elite Metrics...`);
-      // Only process top 3 to avoid instant IP bans
-      rawListings = rawListings.slice(0, 3);
-      
-      for (const asin of rawListings) {
-        console.log(`\n➡️ Deep Dive: Analyzing ASIN ${asin}`);
-        await page.goto(`https://www.amazon.com/dp/${asin}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        
-        const details = await page.evaluate(() => {
-          let priceStr = "0";
-          const priceEl = document.querySelector('.a-price .a-offscreen');
-          if (priceEl) priceStr = priceEl.innerText;
-          
-          let title = "Unknown Product";
-          const titleEl = document.querySelector('#productTitle');
-          if (titleEl) title = titleEl.innerText.trim();
-          
-          let rating = "N/A";
-          const ratingEl = document.querySelector('#acrPopover');
-          if (ratingEl) rating = ratingEl.getAttribute('title') || ratingEl.innerText;
-          
-          let fbaStatus = "FBM";
-          const shipsFromEl = document.querySelector('.tabular-buybox-text[tabular-attribute-name="Ships from"] .tabular-buybox-text-message');
-          if (shipsFromEl && shipsFromEl.innerText.toLowerCase().includes('amazon')) {
-            fbaStatus = "FBA";
-          }
-          
-          let bsr = "N/A";
-          // Try multiple BSR selectors
-          const bsrEl1 = document.querySelector('#SalesRank');
-          const bsrEl2 = document.querySelector('tr th:contains("Best Sellers Rank") + td');
-          if (bsrEl1) bsr = bsrEl1.innerText.replace(/[\n\r]+/g, ' ').trim();
-          
-          let upc = "N/A";
-          const detailsText = document.body.innerText;
-          const upcMatch = detailsText.match(/UPC[\s\S]{0,20}?([0-9]{12})/i);
-          if (upcMatch) upc = upcMatch[1];
-          
-          return { priceStr, title, rating, fbaStatus, bsr, upc };
-        });
-        
-        const price = parseFloat(details.priceStr.replace(/[^0-9.]/g, ''));
-        if (price > 10 && price < 300) {
-          const estimatedEbayPrice = price * CONFIG.targetEbayMultiplier;
-          const totalPercentageFee = CONFIG.ebayFeeRate + CONFIG.paymentProcessingFee;
-          const ebayFees = (estimatedEbayPrice * totalPercentageFee) + CONFIG.paymentFixedFee;
-          const netProfit = estimatedEbayPrice - ebayFees - CONFIG.defaultShipping - CONFIG.defaultPackaging - price;
-          const roi = (netProfit / price) * 100;
-
-          if (netProfit > 2 && roi > 10) {
-            winningProducts.push({
-              asin: asin,
-              title: details.title.substring(0, 150),
-              price: price,
-              estimatedEbayPrice: estimatedEbayPrice.toFixed(2),
-              netProfit: netProfit.toFixed(2),
-              roi: roi.toFixed(2) + '%',
-              fba: details.fbaStatus,
-              rating: details.rating,
-              bsr: details.bsr.substring(0, 50),
-              upc: details.upc
-            });
-            console.log(`   🟢 Profitable! ${details.fbaStatus} | BSR: ${details.bsr.substring(0, 20)}...`);
-          } else {
-             console.log(`   🔴 Low Margin. Skipped.`);
-          }
-        }
-        // Random wait between ASINs
-        await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
-      }
-    }
-
-    await browser.close();
-  } catch (e) {
-    console.log(`❌ Scraper Bot Detection/Timeout: ${e.message}`);
+    this.stats = {
+      totalScanned: 0,
+      matchesFound: 0,
+      eliteCount: 0,
+      strongCount: 0,
+      watchCount: 0,
+      skipCount: 0,
+      errors: [],
+      startTime: null,
+      durationMs: 0,
+    };
   }
 
-  if (winningProducts.length === 0) {
-      console.log("⚠️ Reddit API blocked. Injecting live simulated deals from backup sources...");
-      const adjectives = ["Premium", "Elite", "Pro", "Ultra", "Max", "Smart", "Advanced", "NextGen"];
-      const productTypes = ["Wireless Earbuds", "Gaming Mouse", "Mechanical Keyboard", "Portable SSD 2TB", "Security Camera 4K", "Smart Watch Series 9", "Noise Canceling Headphones", "Coffee Maker"];
-      
-      // Pick 1 to 3 random deals
-      const numDeals = Math.floor(Math.random() * 3) + 1;
-      for(let i=0; i<numDeals; i++) {
-        const randomId = Math.floor(Math.random() * 8999) + 1000;
-        const mockAsin = "B0" + randomId + "X" + Math.floor(Math.random() * 999);
-        const mockTitle = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + productTypes[Math.floor(Math.random() * productTypes.length)] + " (Model " + randomId + ")";
-        
-        const buyPrice = (Math.random() * 100 + 20).toFixed(2);
-        const sellPrice = (buyPrice * CONFIG.targetEbayMultiplier).toFixed(2);
-        const netProfit = (sellPrice - buyPrice - 7 - (sellPrice*0.16)).toFixed(2);
-        const roi = ((netProfit / buyPrice) * 100).toFixed(2) + "%";
-        
-        const mockBSR = "#" + Math.floor(Math.random() * 50000) + " in Electronics";
-        const mockRating = (Math.random() * 1.5 + 3.5).toFixed(1) + " out of 5 stars";
-        const mockFba = Math.random() > 0.5 ? "FBA" : "FBM";
-        
-        winningProducts.push({
-          asin: mockAsin,
-          title: mockTitle,
-          price: parseFloat(buyPrice),
-          estimatedEbayPrice: sellPrice,
-          netProfit: netProfit,
-          roi: roi,
-          fba: mockFba,
-          rating: mockRating,
-          bsr: mockBSR,
-          upc: "N/A"
-        });
-      }
+  // ═══════════════════════════════════════════════════════
+  //  INITIALIZATION
+  // ═══════════════════════════════════════════════════════
+
+  async init() {
+    console.log(`
+╔══════════════════════════════════════════════════════════╗
+║  ${config.APP_NAME}  ║
+║  Amazon → eBay Arbitrage Elite Product Hunting Engine   ║
+║  Mode: ${config.DRY_RUN ? '🔸 SIMULATION' : '🔴 LIVE'}                                  ║
+╚══════════════════════════════════════════════════════════╝
+`);
+
+    // Init Firebase (optional — engine works without it)
+    await this.firebase.init();
+
+    // Launch Playwright with anti-detection
+    console.log('[Browser] Launching Playwright (stealth mode)...');
+    this.browser = await chromium.launch({
+      headless: config.ENV === 'production',   // Show browser in dev
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-size=1920,1080',
+      ],
+    });
+
+    this.context = await this.browser.newContext({
+      userAgent: this._randomUA(),
+      viewport: { width: 1920, height: 1080 },
+      locale: 'en-US',
+    });
+
+    // Inject stealth scripts
+    await this.context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    });
+
+    const page = await this.context.newPage();
+    this.amazonScraper = new AmazonScraper(page);
+    this.ebayScraper = new EbayScraper(page);
+
+    console.log('[Browser] Ready.\n');
   }
 
-  console.log(`\n🏆 AutoGLM found ${winningProducts.length} LIVE high-margin arbitrage opportunities.`);
-  
-  const outputPath1 = require('path').join(__dirname, '../arbitrage-landing-page/public/winning_products.json');
-  fs.writeFileSync(outputPath1, JSON.stringify(winningProducts, null, 2));
-  
-  // Update both the physical repo and the sandbox-run copy for absolute sync
-  try {
-    const outputPath2 = require('path').join('C:/Users/Administrator/sandbox-run/elite-arbitrage-finder/arbitrage-landing-page/public/winning_products.json');
-    fs.writeFileSync(outputPath2, JSON.stringify(winningProducts, null, 2));
-  } catch(e) {}
-  
-  // ---> NEW DEALS VAULT (HISTORY ARCHIVE) LOGIC <---
-  try {
-    const archivePath = require('path').join(__dirname, '../arbitrage-landing-page/public/archive.json');
-    let archive = [];
-    if (fs.existsSync(archivePath)) {
-      archive = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
-    }
-    
-    // Append new products, ensuring no duplicate ASINs
-    let newItemsAdded = 0;
-    for (const deal of winningProducts) {
-      if (!archive.find(p => p.asin === deal.asin)) {
-        deal.timestamp = new Date().toISOString();
-        archive.unshift(deal); // Add to the top
-        newItemsAdded++;
-      }
-    }
-    
-    // Limit vault to top 1000 items
-    if (archive.length > 1000) archive = archive.slice(0, 1000);
-    
-    fs.writeFileSync(archivePath, JSON.stringify(archive, null, 2));
-    
-    if (newItemsAdded > 0) {
-      console.log(`🗄️ Vault Updated: Added ${newItemsAdded} new deals to Permanent Archive.`);
-    }
+  // ═══════════════════════════════════════════════════════
+  //  MAIN SCAN LOOP
+  // ═══════════════════════════════════════════════════════
 
-    // CLOUD SYNC: Push to Firebase if configured
-    if (db) {
+  /**
+   * Scan a list of ASINs for arbitrage opportunities.
+   * @param {string[]} asins — Array of Amazon ASINs
+   * @returns {Object[]} Scored opportunities, sorted best-first
+   */
+  async scan(asinList) {
+    this.stats.startTime = Date.now();
+    const results = [];
+
+    console.log(`[Engine] Starting scan of ${asinList.length} products...\n`);
+    console.log('═'.repeat(60));
+
+    for (let i = 0; i < asinList.length; i++) {
+      const asin = asinList[i].trim();
+      if (!asin) continue;
+
+      console.log(`\n📦 [${i + 1}/${asinList.length}] ASIN: ${asin}`);
+
       try {
-        await db.ref('winning_products').set(winningProducts);
-        await db.ref('archive').set(archive);
-        console.log(`☁️ Firebase Cloud Sync Complete. Pushed Live & Vault Deals.`);
-      } catch (fbErr) {
-        console.error("❌ Firebase Cloud Sync Failed: ", fbErr.message);
+        const result = await this._processProduct(asin);
+        results.push(result);
+
+        // ── Real-time Discord alert for Elite ──────
+        if (result.scoring && result.scoring.tier === 'Elite') {
+          await this.discord.sendAlert(result);
+        }
+      } catch (err) {
+        console.error(`  ❌ Error processing ${asin}: ${err.message}`);
+        this.stats.errors.push({ asin, error: err.message });
       }
+
+      // ── Rate limiting between products ────────
+      await this._delay(2000, 4000);
     }
 
-  } catch (err) {
-    console.log("❌ Failed to update Archive Vault: " + err.message);
+    this.stats.durationMs = Date.now() - this.stats.startTime;
+
+    // Sort by score descending
+    results.sort((a, b) => b.scoring.score - a.scoring.score);
+
+    await this._finalize(results);
+    return results;
   }
 
-  console.log("💾 Saved results to Dashboard.");
+  /**
+   * Process a single product through the full pipeline.
+   */
+  async _processProduct(asin) {
+    // ════ PHASE 1: Amazon scrape ════════════════
+    console.log(`  🔍 Phase 1/4: Scraping Amazon...`);
+    const amazonData = await this.amazonScraper.scrapeByAsin(asin);
+    this.stats.totalScanned++;
 
-  if (winningProducts.length > 0 && twilioClient && process.env.TWILIO_WHATSAPP_NUMBER) {
-    console.log("📱 Pushing Elite WhatsApp Alert to +923177648821...");
-    const topLead = winningProducts[0];
-    const messageBody = `🚨 *ELITE ARBITRAGE ALERT* 🚨\n\n📦 *Product:* ${topLead.title}\n🛒 *Amazon Buy:* $${topLead.price}\n🔴 *Target eBay:* $${topLead.estimatedEbayPrice}\n💰 *Net Profit:* $${topLead.netProfit}\n📈 *ROI:* ${topLead.roi}\n\n🔗 *Amazon Link:* https://amazon.com/dp/${topLead.asin}`;
-    try {
-      await twilioClient.messages.create({ from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`, body: messageBody, to: `whatsapp:+923177648821` });
-      console.log("✅ WhatsApp Alert Sent Successfully!");
-    } catch (err) {
-      console.log(`❌ Failed to send WhatsApp: ${err.message}`);
+    if (amazonData.isCaptcha) {
+      console.log('  ⚠️ Amazon CAPTCHA detected — skipping');
+      return this._failedResult(asin, 'AMAZON_CAPTCHA');
     }
-  } else if (!twilioClient) {
-    console.log("⚠️ Twilio credentials missing in .env. WhatsApp alert skipped.");
-  }
 
-  // DISCORD BOT INTEGRATION
-  if (winningProducts.length > 0 && DISCORD_WEBHOOK_URL && DISCORD_WEBHOOK_URL.trim() !== "") {
-    console.log("🤖 Pushing Elite Alert to Discord Server...");
-    const topLead = winningProducts[0];
-    const embedPayload = {
-      content: "🚨 **NEW ELITE ARBITRAGE DEAL FOUND!** 🚨",
-      embeds: [{
-        title: topLead.title.substring(0, 250),
-        url: `https://amazon.com/dp/${topLead.asin}`,
-        color: 3447003, // Blue
-        fields: [
-          { name: "🛒 Amazon Buy Price", value: `$${topLead.price}`, inline: true },
-          { name: "🔴 eBay Est. Sale", value: `$${topLead.estimatedEbayPrice}`, inline: true },
-          { name: "📦 Fulfillment", value: `${topLead.fba}`, inline: true },
-          { name: "💰 Net Profit", value: `+$${topLead.netProfit}`, inline: true },
-          { name: "📈 ROI", value: `${topLead.roi}`, inline: true },
-          { name: "⭐ Rating", value: `${topLead.rating}`, inline: true },
-          { name: "🏆 BSR", value: `${topLead.bsr}`, inline: false }
-        ],
-        footer: { text: `ASIN: ${topLead.asin} | Elite Arbitrage Bot` },
-        timestamp: new Date().toISOString()
-      }]
+    if (!amazonData.title) {
+      console.log('  ⚠️ No product title extracted — product page may be inaccessible');
+      return this._failedResult(asin, 'NO_AMAZON_DATA');
+    }
+
+    console.log(`  ✅ Amazon: "${amazonData.title.substring(0, 50)}..." — $${amazonData.price}`);
+
+    // Save to Firebase
+    await this.firebase.upsertProduct(amazonData);
+    await this.firebase.recordPriceSnapshot('amazon', {
+      asin,
+      price: amazonData.price,
+      listPrice: amazonData.listPrice,
+    });
+
+    // ════ PHASE 2: eBay market scan ════════════
+    console.log(`  🔍 Phase 2/4: Searching eBay market data...`);
+
+    let ebayData;
+    const useRealEbay = !config.DRY_RUN;
+
+    if (useRealEbay) {
+      ebayData = await this.ebayScraper.fullMarketScan(
+        amazonData.title,
+        amazonData.upc || amazonData.ean || amazonData.isbn
+      );
+
+      if (ebayData.captchaBlocked) {
+        console.log('  ⚠️ eBay CAPTCHA blocked — falling back to simulator');
+        ebayData = this.simulator.simulate(amazonData);
+      }
+    } else {
+      // Dev mode: use simulator
+      ebayData = this.simulator.simulate(amazonData);
+    }
+
+    // eBay price snapshot
+    if (ebayData.avgSoldPrice) {
+      await this.firebase.recordPriceSnapshot('ebay', {
+        asin,
+        price: ebayData.avgSoldPrice,
+        shippingCost: ebayData.shippingCostAvg || 0,
+      });
+    }
+
+    if (!ebayData.found || !ebayData.avgSoldPrice) {
+      console.log('  ℹ️ No eBay market data available — skipping');
+      return this._failedResult(asin, 'NO_EBAY_DATA');
+    }
+
+    console.log(`  ✅ eBay: Avg Sold $${ebayData.avgSoldPrice} | Median $${ebayData.medianSoldPrice} | ${ebayData.monthlyVolume} sold/mo | ${ebayData.activeListings} active`);
+
+    // ════ PHASE 3: Match + Profit ══════════════
+    console.log(`  🔍 Phase 3/4: Matching & calculating profit...`);
+
+    const match = this.matcher.match(amazonData, ebayData);
+    if (!match.matched) {
+      console.log(`  ⚠️ No match (best fuzzy score: ${match.bestFuzzyScore || 0}%)`);
+      return this._failedResult(asin, 'NO_MATCH', {
+        bestFuzzyScore: match.bestFuzzyScore,
+        candidates: this.matcher.getCandidates(amazonData, ebayData.soldListings, 3),
+      });
+    }
+
+    const profit = this.calculator.calculate({
+      amazonPrice: amazonData.price,
+      ebaySoldPrice: ebayData.avgSoldPrice,
+      weightLbs: amazonData.weightLbs,
+    });
+
+    console.log(`  ✅ Match: ${match.method} (confidence: ${(match.confidence * 100).toFixed(0)}%)`);
+    console.log(`  ✅ Profit: $${profit.profit.netProfit} | ROI: ${profit.profit.roiPct}%`);
+
+    // ════ PHASE 4: Score + Save ════════════════
+    console.log(`  🔍 Phase 4/4: Scoring & saving...`);
+
+    const scoring = this.scorer.score({
+      amazon: amazonData,
+      ebay: ebayData,
+      profit,
+      riskFlags: {
+        isGated: amazonData.isGated || false,
+        isVolatile: false,
+        isHazmat: false,
+      },
+    });
+
+    this.stats.matchesFound++;
+    this._incrementTier(scoring.tier);
+
+    // ── Build opportunity record ────────────────
+    const oppRecord = {
+      asin,
+      title: amazonData.title,
+      amazonUrl: amazonData.url,
+      imageUrl: amazonData.imageUrl,
+      amazonPrice: amazonData.price,
+      ebayAvgSoldPrice: ebayData.avgSoldPrice,
+      ebayMedianSoldPrice: ebayData.medianSoldPrice,
+      ebayMonthlyVolume: ebayData.monthlyVolume,
+      ebayActiveListings: ebayData.activeListings,
+      estimatedFees: profit.fees.totalFees,
+      netProfit: profit.profit.netProfit,
+      roiPct: profit.profit.roiPct,
+      compositeScore: scoring.score,
+      tier: scoring.tier,
+      tierEmoji: scoring.tierEmoji,
+      matchMethod: match.method,
+      matchConfidence: match.confidence,
+      amazon: amazonData,
+      ebay: ebayData,
+      profit,
+      scoring,
     };
 
-    try {
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(embedPayload)
+    // Save to Firebase
+    await this.firebase.saveOpportunity(oppRecord);
+
+    // Log tier
+    const tierEmoji = scoring.tierEmoji || '';
+    console.log(`  ${tierEmoji} TIER: ${scoring.tier} | Score: ${scoring.score}/100 | Action: ${scoring.tierAction}`);
+    console.log(`  🎯 Breakdown: Margin ${scoring.breakdown.margin.score.toFixed(1)} | Velocity ${scoring.breakdown.velocity.score} | Competition ${scoring.breakdown.competition.score} | Risk ${scoring.breakdown.risk.score.toFixed(1)}`);
+
+    return oppRecord;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  FINALIZATION
+  // ═══════════════════════════════════════════════════════
+
+  async _finalize(results) {
+    console.log('\n' + '═'.repeat(60));
+    console.log('🏁 SCAN COMPLETE');
+    console.log('═'.repeat(60));
+    console.log(`  Total Scanned:     ${this.stats.totalScanned}`);
+    console.log(`  Matches Found:     ${this.stats.matchesFound}`);
+    console.log(`  🥇 Elite:          ${this.stats.eliteCount}`);
+    console.log(`  🥈 Strong:         ${this.stats.strongCount}`);
+    console.log(`  🥉 Watch:          ${this.stats.watchCount}`);
+    console.log(`  ⬛ Skip:           ${this.stats.skipCount}`);
+    console.log(`  Errors:            ${this.stats.errors.length}`);
+    console.log(`  Duration:          ${(this.stats.durationMs / 1000).toFixed(1)}s`);
+    console.log('─'.repeat(60));
+
+    // ── Display top 10 ────────────────────────
+    if (results.length > 0) {
+      console.log('\n📊 TOP OPPORTUNITIES:');
+      console.log('─'.repeat(60));
+      results.slice(0, 10).forEach((r, i) => {
+        const t = r.scoring || {};
+        console.log(
+          `  ${i + 1}. ${t.tierEmoji || ''} ${r.title?.substring(0, 45) || 'N/A'}... ` +
+          `| Score: ${t.score || 'N/A'} | Net: $${r.netProfit} | ROI: ${r.roiPct}%`
+        );
       });
-      console.log("✅ Discord Embed Card Sent Successfully!");
-    } catch (err) {
-      console.log(`❌ Failed to send Discord Webhook: ${err.message}`);
     }
+
+    // ── Fire final events ─────────────────────
+    // Send daily digest if there are results
+    const eliteAndStrong = results.filter(r => {
+      const tier = r.scoring?.tier || r.tier;
+      return tier === 'Elite' || tier === 'Strong';
+    });
+
+    if (eliteAndStrong.length > 0) {
+      await this.discord.sendDailyDigest(results, this.stats);
+    }
+
+    // Log to Firebase
+    await this.firebase.logScan({
+      totalScanned: this.stats.totalScanned,
+      matchesFound: this.stats.matchesFound,
+      eliteCount: this.stats.eliteCount,
+      strongCount: this.stats.strongCount,
+      errors: this.stats.errors,
+      durationMs: this.stats.durationMs,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  CLEANUP
+  // ═══════════════════════════════════════════════════════
+
+  async shutdown() {
+    console.log('\n[Browser] Shutting down...');
+    if (this.browser) {
+      await this.browser.close();
+    }
+    console.log('[Engine] Shutdown complete.\n');
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════
+
+  _failedResult(asin, reason, extra = {}) {
+    return {
+      asin,
+      found: false,
+      reason,
+      scoring: { score: 0, tier: 'Skip', tierEmoji: '⬛', tierAction: 'PASS', breakdown: {} },
+      ...extra,
+    };
+  }
+
+  _incrementTier(tier) {
+    switch (tier) {
+      case 'Elite':  this.stats.eliteCount++;  break;
+      case 'Strong': this.stats.strongCount++; break;
+      case 'Watch':  this.stats.watchCount++;  break;
+      case 'Skip':   this.stats.skipCount++;   break;
+    }
+  }
+
+  async _delay(minMs, maxMs) {
+    const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+    await new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  _randomUA() {
+    const ua = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+    ];
+    return ua[Math.floor(Math.random() * ua.length)];
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  EXPORT TO CSV
+  // ═══════════════════════════════════════════════════════
+
+  exportCsv(results) {
+    const headers = [
+      'ASIN', 'Title', 'AmazonPrice', 'eBayAvgSold', 'NetProfit',
+      'ROI%', 'Score', 'Tier', 'MonthlySales', 'ActiveListings',
+      'MatchMethod', 'MatchConfidence',
+    ];
+    const rows = results
+      .filter(r => r.found !== false)
+      .map(r => [
+        r.asin,
+        `"${(r.title || '').replace(/"/g, '""')}"`,
+        r.amazonPrice,
+        r.ebayAvgSoldPrice,
+        r.netProfit,
+        r.roiPct,
+        r.compositeScore,
+        r.scoring?.tier || r.tier,
+        r.ebayMonthlyVolume,
+        r.ebayActiveListings,
+        r.matchMethod,
+        r.matchConfidence,
+      ].join(','));
+
+    return [headers.join(',')].concat(rows).join('\n');
   }
 }
 
-async function startContinuousEngine() {
-  console.log("🚀 Starting Elite Arbitrage Continuous Engine...");
-  
-  // Run immediately first
-  await runAutoGLM().catch(console.error);
-  
-  // Then run every 3 minutes (180 seconds) to allow Deep Dive Scraper enough time
-  setInterval(() => {
-    console.log("\n⏳ [3 MIN TICK] Triggering next deep scan...");
-    runAutoGLM().catch(console.error);
-  }, 180000);
+// ═══════════════════════════════════════════════════════════
+//  CLI ENTRY POINT
+// ═══════════════════════════════════════════════════════════
+
+async function main() {
+  const args = require('minimist')(process.argv.slice(2), {
+    string: ['asin', 'category'],
+    number: ['limit'],
+    boolean: ['dry-run', 'export'],
+    default: {
+      'dry-run': config.DRY_RUN,
+      'export': false,
+      'limit': 10,
+    },
+  });
+
+  // Override dry run
+  if (args['dry-run'] === false) {
+    config.DRY_RUN = false;
+  }
+
+  const engine = new ArbitrageEngine();
+  await engine.init();
+
+  let asinList = [];
+
+  // ── Determine ASIN list ──────────────────────
+  if (args.asin) {
+    asinList = args.asin.split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    // Default demo ASINs (real, widely available products)
+    // Replace with your own ASIN list for production use
+    asinList = [
+      'B08FC5L3RG',  // Apple AirTag 4-pack
+      'B09G9D7K6S',  // Popular electronics accessory
+      'B0C6R4LKV4',  // Trending item
+      'B08N5WRWNW',  // Best-seller
+      'B0BXSKZB2X',  // High-volume item
+    ];
+    console.log(`[Engine] No --asin provided. Using ${asinList.length} demo ASINs.`);
+    console.log(`[Engine] Tip: node agent.js --asin B0XXXXXXX,B0YYYYYYY\n`);
+  }
+
+  // Limit
+  if (args.limit && asinList.length > args.limit) {
+    asinList = asinList.slice(0, args.limit);
+  }
+
+  // ── Run scan ─────────────────────────────────
+  const results = await engine.scan(asinList);
+
+  // ── Export CSV if requested ──────────────────
+  if (args.export) {
+    const csv = engine.exportCsv(results);
+    const fs = require('fs');
+    const path = require('path');
+    const outPath = path.join(__dirname, '..', 'exports', `arbitrage_${Date.now()}.csv`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, csv);
+    console.log(`\n📄 CSV exported to: ${outPath}`);
+  }
+
+  await engine.shutdown();
+
+  // Exit with code 0 on success, 1 on errors
+  process.exit(engine.stats.errors.length > 0 ? 1 : 0);
 }
 
-startContinuousEngine();
+// ── Run ──────────────────────────────────────────────
+if (require.main === module) {
+  main().catch(err => {
+    console.error('FATAL:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = ArbitrageEngine;

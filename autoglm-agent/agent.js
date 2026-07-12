@@ -250,7 +250,7 @@ class ArbitrageEngine {
     // ════ PHASE 3: Match + Profit ══════════════
     console.log(`  🔍 Phase 3/4: Matching & profit calculation...`);
 
-    const match = this.matcher.match(amazonData, ebayData);
+    const match = await this.matcher.match(amazonData, ebayData);
     if (!match.matched) {
       console.log(`  ⚠️ No match (best fuzzy: ${match.bestFuzzyScore || 0}%)`);
       return this._failedResult(asin, 'NO_MATCH', {
@@ -304,6 +304,7 @@ class ArbitrageEngine {
       tierEmoji: scoring.tierEmoji,
       matchMethod: match.method,
       matchConfidence: match.confidence,
+      matchTier: match.tier || 0,
       amazon: amazonData,
       ebay: ebayData,
       profit,
@@ -413,33 +414,173 @@ class ArbitrageEngine {
   }
 
   // ═══════════════════════════════════════════════════════
-  //  EXPORT TO CSV
+  //  EXPORTER — CSV + JSON (for dashboard)
   // ═══════════════════════════════════════════════════════
 
+  /**
+   * Export results to CSV with full columns, color-coded tier, and complete fee breakdown.
+   */
   exportCsv(results) {
     const headers = [
-      'ASIN', 'Title', 'AmazonPrice', 'eBayAvgSold', 'NetProfit',
-      'ROI%', 'Score', 'Tier', 'MonthlySales', 'ActiveListings',
-      'MatchMethod', 'MatchConfidence',
+      'Tier', 'ASIN', 'Title', 'AmazonPrice', 'eBayAvgSold', 'eBayMedianSold',
+      'NetProfit', 'ROI%', 'CompositeScore',
+      'MarginScore', 'VelocityScore', 'CompetitionScore', 'RiskScore',
+      'MonthlySales', 'ActiveListings', 'SellThroughRate',
+      'eBayFVF', 'PaymentFee', 'ShippingCost', 'ReturnsBuffer', 'TotalFees',
+      'MatchMethod', 'MatchConfidence', 'MatchTier',
+      'AmazonRating', 'AmazonReviews', 'BSR', 'IsFBA', 'Category',
+      'AmazonURL', 'ImageURL',
     ];
+
     const rows = results
       .filter(r => r.found !== false)
-      .map(r => [
-        r.asin,
-        `"${(r.title || '').replace(/"/g, '""')}"`,
-        r.amazonPrice,
-        r.ebayAvgSoldPrice,
-        r.netProfit,
-        r.roiPct,
-        r.compositeScore,
-        r.scoring?.tier || r.tier,
-        r.ebayMonthlyVolume,
-        r.ebayActiveListings,
-        r.matchMethod,
-        r.matchConfidence,
-      ].join(','));
+      .map(r => {
+        const s = r.scoring || {};
+        const b = s.breakdown || {};
+        const p = r.profit || {};
+        const a = r.amazon || r; // amazon data stored inline or in .amazon
+
+        const sellThrough = r.ebayMonthlyVolume && r.ebayActiveListings
+          ? (r.ebayMonthlyVolume / Math.max(r.ebayActiveListings, 1) * 100).toFixed(1) + '%'
+          : '';
+
+        return [
+          s.tierEmoji || r.tierEmoji || '',
+          r.asin,
+          `"${(r.title || '').replace(/"/g, '""')}"`,
+          r.amazonPrice?.toFixed(2) || '',
+          r.ebayAvgSoldPrice?.toFixed(2) || '',
+          r.ebayMedianSoldPrice?.toFixed(2) || '',
+          r.netProfit?.toFixed(2) || '',
+          r.roiPct?.toFixed(1) || '',
+          (s.score || r.compositeScore)?.toFixed(1) || '',
+          b.margin?.score?.toFixed(1) || '',
+          b.velocity?.score || '',
+          b.competition?.score || '',
+          b.risk?.score?.toFixed(1) || '',
+          r.ebayMonthlyVolume || '',
+          r.ebayActiveListings || '',
+          sellThrough,
+          p.fees?.ebayFvf?.toFixed(2) || '',
+          p.fees?.paymentFee?.toFixed(2) || '',
+          p.fees?.shippingCost?.toFixed(2) || '',
+          p.fees?.returnsBuffer?.toFixed(2) || '',
+          p.fees?.totalFees?.toFixed(2) || '',
+          r.matchMethod || '',
+          r.matchConfidence?.toFixed(3) || '',
+          r.matchTier || '',
+          a.rating || '',
+          a.reviewCount || '',
+          a.bsr || '',
+          a.isFba ? 'Yes' : 'No',
+          `"${(a.category || '').replace(/"/g, '""')}"`,
+          r.amazonUrl || r.url || '',
+          r.imageUrl || a.imageUrl || '',
+        ].join(',');
+      });
 
     return [headers.join(',')].concat(rows).join('\n');
+  }
+
+  /**
+   * Export results as JSON (used by the dashboard HTML).
+   */
+  exportJson(results) {
+    const exportable = results
+      .filter(r => r.found !== false)
+      .map(r => {
+        const s = r.scoring || {};
+        const b = s.breakdown || {};
+        const p = r.profit || {};
+        const a = r.amazon || r;
+        return {
+          asin: r.asin,
+          title: r.title,
+          tier: s.tier || r.tier || 'Skip',
+          tierEmoji: s.tierEmoji || r.tierEmoji || '',
+          score: s.score ?? r.compositeScore ?? 0,
+          amazonPrice: r.amazonPrice,
+          ebayAvgSoldPrice: r.ebayAvgSoldPrice,
+          ebayMedianSoldPrice: r.ebayMedianSoldPrice,
+          netProfit: r.netProfit,
+          roiPct: r.roiPct,
+          monthlyVolume: r.ebayMonthlyVolume,
+          activeListings: r.ebayActiveListings,
+          sellThroughRate: r.ebayMonthlyVolume && r.ebayActiveListings
+            ? parseFloat((r.ebayMonthlyVolume / Math.max(r.ebayActiveListings, 1) * 100).toFixed(1))
+            : 0,
+          matchMethod: r.matchMethod,
+          matchConfidence: r.matchConfidence,
+          matchTier: r.matchTier,
+          breakdown: {
+            margin: b.margin?.score || 0,
+            velocity: b.velocity?.score || 0,
+            competition: b.competition?.score || 0,
+            risk: b.risk?.score || 0,
+          },
+          fees: {
+            ebayFvf: p.fees?.ebayFvf,
+            paymentFee: p.fees?.paymentFee,
+            shipping: p.fees?.shippingCost,
+            returns: p.fees?.returnsBuffer,
+            total: p.fees?.totalFees,
+          },
+          flags: s.flags || [],
+          category: a.category || '',
+          rating: a.rating || null,
+          reviewCount: a.reviewCount || 0,
+          bsr: a.bsr || null,
+          isFba: a.isFba || false,
+          imageUrl: r.imageUrl || a.imageUrl || '',
+          amazonUrl: r.amazonUrl || r.url || '',
+        };
+      });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      stats: {
+        totalScanned: this.stats.totalScanned,
+        matchesFound: this.stats.matchesFound,
+        eliteCount: this.stats.eliteCount,
+        strongCount: this.stats.strongCount,
+        watchCount: this.stats.watchCount,
+        skipCount: this.stats.skipCount,
+        errors: this.stats.errors.length,
+        durationMs: this.stats.durationMs,
+      },
+      opportunities: exportable,
+    };
+  }
+
+  /**
+   * Save both CSV and JSON exports to disk.
+   */
+  async saveExports(results) {
+    const fs = require('fs');
+    const path = require('path');
+    const exportsDir = path.join(__dirname, '..', 'exports');
+    fs.mkdirSync(exportsDir, { recursive: true });
+
+    const timestamp = Date.now();
+
+    // CSV
+    const csv = this.exportCsv(results);
+    const csvPath = path.join(exportsDir, `arbitrage_${timestamp}.csv`);
+    fs.writeFileSync(csvPath, csv);
+    console.log(`\n📄 CSV exported: ${csvPath}`);
+
+    // JSON (for dashboard)
+    const json = this.exportJson(results);
+    const jsonPath = path.join(exportsDir, `arbitrage_${timestamp}.json`);
+    fs.writeFileSync(jsonPath, JSON.stringify(json, null, 2));
+    console.log(`📊 JSON exported: ${jsonPath}`);
+
+    // Always overwrite latest_scan.json for the dashboard
+    const latestPath = path.join(exportsDir, 'latest_scan.json');
+    fs.writeFileSync(latestPath, JSON.stringify(json, null, 2));
+    console.log(`📊 Dashboard data: ${latestPath}`);
+
+    return { csvPath, jsonPath, latestPath };
   }
 }
 
@@ -494,15 +635,9 @@ async function main() {
   // ── Run scan ─────────────────────────────────
   const results = await engine.scan(asinList);
 
-  // ── Export CSV if requested ──────────────────
+  // ── Export CSV + JSON if requested ──────────
   if (args.export) {
-    const csv = engine.exportCsv(results);
-    const fs = require('fs');
-    const path = require('path');
-    const outPath = path.join(__dirname, '..', 'exports', `arbitrage_${Date.now()}.csv`);
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, csv);
-    console.log(`\n📄 CSV exported to: ${outPath}`);
+    await engine.saveExports(results);
   }
 
   await engine.shutdown();

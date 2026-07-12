@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon → eBay Arbitrage Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --card-bg: #131a2b;
+    --border: #1e2d4a;
+    --text: #e2e8f0;
+    --text-muted: #8899b4;
+    --elite: #ffd700;
+    --strong: #00c9a7;
+    --watch: #7c5cfc;
+    --skip: #4a5568;
+    --profit: #22c55e;
+    --loss: #ef4444;
+    --chart-blue: #3b82f6;
+    --chart-orange: #f59e0b;
+    --chart-green: #10b981;
+    --chart-purple: #8b5cf6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI','Inter',system-ui,sans-serif; min-height:100vh; }
+  .header {
+    background:linear-gradient(180deg, #111827, var(--bg));
+    border-bottom:1px solid var(--border);
+    padding:20px 28px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .header h1 {
+    font-size:1.4rem;
+    background:linear-gradient(135deg, #ff9900, #e53238);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .header .time { font-size:0.75rem; color:var(--text-muted); }
+  .stats-row {
+    display:flex;
+    gap:12px;
+    padding:16px 28px;
+    flex-wrap:wrap;
+  }
+  .stat-card {
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 18px;
+    min-width:110px;
+    text-align:center;
+  }
+  .stat-card .num { font-size:1.5rem; font-weight:700; }
+  .stat-card .lbl { font-size:0.65rem; text-transform:uppercase; color:var(--text-muted); margin-top:2px; }
+  .stat-card.elite .num { color:var(--elite); }
+  .stat-card.strong .num { color:var(--strong); }
+  .stat-card.watch .num { color:var(--watch); }
+  .stat-card.roi .num { color:var(--profit); }
+  .tabs {
+    display:flex;
+    gap:0;
+    padding:0 28px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab {
+    padding:10px 20px;
+    cursor:pointer;
+    font-size:0.8rem;
+    color:var(--text-muted);
+    border-bottom:2px solid transparent;
+    transition:all 0.2s;
+  }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--text); border-bottom-color:var(--chart-blue); }
+  .content { padding:24px 28px; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+
+  /* Table */
+  .table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  th {
+    background:var(--card-bg);
+    padding:10px 12px;
+    text-align:left;
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+    border-bottom:1px solid var(--border);
+    color:var(--text-muted);
+  }
+  th:hover { color:var(--text); }
+  th .sort-arrow { margin-left:4px; font-size:0.6rem; }
+  td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  tr:hover td { background:rgba(255,255,255,0.02); }
+  .tier-badge {
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:4px;
+    font-size:0.7rem;
+    font-weight:600;
+  }
+  .tier-Elite { background:rgba(255,215,0,0.15); color:var(--elite); }
+  .tier-Strong { background:rgba(0,201,167,0.15); color:var(--strong); }
+  .tier-Watch { background:rgba(124,92,252,0.15); color:var(--watch); }
+  .tier-Skip { background:rgba(74,85,104,0.15); color:var(--skip); }
+  .profit-pos { color:var(--profit); }
+  .profit-neg { color:var(--loss); }
+
+  /* Charts */
+  .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .chart-grid { grid-template-columns:1fr; } }
+  .chart-box {
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+  }
+  .chart-box h3 { font-size:0.85rem; margin-bottom:12px; color:var(--text); }
+  canvas { width:100% !important; max-height:300px; }
+
+  /* File drop zone */
+  .drop-zone {
+    border:2px dashed var(--border);
+    border-radius:12px;
+    padding:40px;
+    text-align:center;
+    cursor:pointer;
+    transition:all 0.3s;
+    color:var(--text-muted);
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color:var(--chart-blue); background:rgba(59,130,246,0.05); }
+  .drop-zone.loaded { border-color:var(--profit); }
+  #fileInput { display:none; }
+
+  /* Search/filter */
+  .controls {
+    display:flex;
+    gap:10px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .controls input, .controls select {
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:0.8rem;
+  }
+  .controls input { width:250px; }
+  .controls select { min-width:130px; }
+  .no-data { text-align:center; padding:60px; color:var(--text-muted); }
+  .no-data .icon { font-size:3rem; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔄 Amazon → eBay Arbitrage Dashboard</h1>
+    <div class="time" id="scanTime">No data loaded</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button onclick="document.getElementById('fileInput').click()" style="background:var(--chart-blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:0.8rem;">📂 Load JSON Export</button>
+    <input type="file" id="fileInput" accept=".json" onchange="loadFile(this)">
+  </div>
+</div>
+
+<div class="stats-row" id="statsRow"></div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('table')">📋 Opportunities</div>
+  <div class="tab" onclick="switchTab('charts')">📊 Charts</div>
+  <div class="tab" onclick="switchTab('heatmap')">🗺️ Category Heatmap</div>
+  <div class="tab" onclick="switchTab('breakdown')">🎯 Score Breakdown</div>
+</div>
+
+<div class="content">
+  <!-- TABLE PANEL -->
+  <div class="panel active" id="panel-table">
+    <div class="controls">
+      <input type="text" id="searchInput" placeholder="🔍 Search by title or ASIN..." oninput="filterTable()">
+      <select id="tierFilter" onchange="filterTable()">
+        <option value="">All Tiers</option>
+        <option value="Elite">🥇 Elite</option>
+        <option value="Strong">🥈 Strong</option>
+        <option value="Watch">🥉 Watch</option>
+        <option value="Skip">⬛ Skip</option>
+      </select>
+      <select id="sortCol" onchange="filterTable()">
+        <option value="score-desc">Score ↓</option>
+        <option value="roi-desc">ROI ↓</option>
+        <option value="profit-desc">Net Profit ↓</option>
+        <option value="volume-desc">Sales Volume ↓</option>
+        <option value="price-asc">Amazon Price ↑</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table id="oppTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <!-- CHARTS PANEL -->
+  <div class="panel" id="panel-charts">
+    <div class="chart-grid">
+      <div class="chart-box"><h3>💵 Net Profit by Tier</h3><canvas id="chartProfit"></canvas></div>
+      <div class="chart-box"><h3>📈 ROI Distribution</h3><canvas id="chartRoi"></canvas></div>
+      <div class="chart-box"><h3>🔄 Sell-Through Rate vs Score</h3><canvas id="chartSellThrough"></canvas></div>
+      <div class="chart-box"><h3>🎯 Tier Distribution</h3><canvas id="chartTiers"></canvas></div>
+    </div>
+  </div>
+
+  <!-- HEATMAP PANEL -->
+  <div class="panel" id="panel-heatmap">
+    <div class="chart-box"><h3>🗺️ Category Performance Heatmap</h3><canvas id="chartHeatmap"></canvas></div>
+  </div>
+
+  <!-- BREAKDOWN PANEL -->
+  <div class="panel" id="panel-breakdown">
+    <div class="chart-box"><h3>🎯 Score Component Contribution (Top 10)</h3><canvas id="chartBreakdown"></canvas></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let data = null;
+let charts = {};
+
+// ══ Auto-load from relative path ═══════════════════════
+async function autoLoad() {
+  try {
+    const resp = await fetch('../exports/latest_scan.json');
+    if (resp.ok) {
+      const json = await resp.json();
+      renderAll(json);
+    } else {
+      showEmpty();
+    }
+  } catch { showEmpty(); }
+}
+
+function showEmpty() {
+  document.getElementById('panel-table').innerHTML = `
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📂</div>
+      <p><strong>Drop your arbitrage JSON export here</strong></p>
+      <p style="font-size:0.8rem;margin-top:6px;">or click to browse. Run: <code>node agent.js --export</code></p>
+    </div>`;
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) readFile(file);
+    });
+  }
+}
+
+function loadFile(input) {
+  const file = input.files[0];
+  if (file) readFile(file);
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const json = JSON.parse(e.target.result);
+      renderAll(json);
+    } catch { alert('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ══ Rendering ══════════════════════════════════════════
+function renderAll(json) {
+  data = json;
+  document.getElementById('scanTime').textContent = `Scan: ${new Date(json.generatedAt).toLocaleString()}`;
+  renderStats(json.stats);
+  renderTable(json.opportunities);
+  renderCharts(json);
+  document.getElementById('fileInput').value = '';
+}
+
+function renderStats(stats) {
+  const row = document.getElementById('statsRow');
+  row.innerHTML = `
+    <div class="stat-card"><div class="num">${stats.totalScanned}</div><div class="lbl">Scanned</div></div>
+    <div class="stat-card"><div class="num">${stats.matchesFound}</div><div class="lbl">Matches</div></div>
+    <div class="stat-card elite"><div class="num">${stats.eliteCount}</div><div class="lbl">🥇 Elite</div></div>
+    <div class="stat-card strong"><div class="num">${stats.strongCount}</div><div class="lbl">🥈 Strong</div></div>
+    <div class="stat-card watch"><div class="num">${stats.watchCount}</div><div class="lbl">🥉 Watch</div></div>
+    <div class="stat-card roi"><div class="num">${avgRoi()}%</div><div class="lbl">Avg ROI</div></div>
+    <div class="stat-card"><div class="num">${(stats.durationMs/1000).toFixed(0)}s</div><div class="lbl">Duration</div></div>`;
+}
+
+function avgRoi() {
+  if (!data || !data.opportunities.length) return '0';
+  return (data.opportunities.reduce((s,o) => s + (o.roiPct||0), 0) / data.opportunities.length).toFixed(1);
+}
+
+// ══ Table ═════════════════════════════════════════════
+function renderTable(opps) {
+  const thead = `
+    <tr>
+      <th onclick="sortBy('tier')">Tier <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('score')">Score <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('title')">Product</th>
+      <th onclick="sortBy('amazonPrice')">Amazon <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('ebayAvgSoldPrice')">eBay Sold <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('netProfit')">Net Profit <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('roiPct')">ROI <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('monthlyVolume')">Sales/mo <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('activeListings')">Competition <span class="sort-arrow">↕</span></th>
+      <th>Sell-Through</th>
+      <th>Match</th>
+    </tr>`;
+  document.querySelector('#oppTable thead').innerHTML = thead;
+  window._opps = opps;
+  filterTable();
+}
+
+function filterTable() {
+  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const tier = document.getElementById('tierFilter')?.value || '';
+  const sort = (document.getElementById('sortCol')?.value || 'score-desc');
+
+  let opps = [...(window._opps || [])];
+
+  if (search) opps = opps.filter(o => (o.title||'').toLowerCase().includes(search) || (o.asin||'').toLowerCase().includes(search));
+  if (tier) opps = opps.filter(o => o.tier === tier);
+
+  // Sort
+  const [col, dir] = sort.split('-');
+  opps.sort((a,b) => {
+    let va = a[col] ?? 0, vb = b[col] ?? 0;
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const tbody = opps.map(o => `
+    <tr>
+      <td><span class="tier-badge tier-${o.tier}">${o.tierEmoji} ${o.tier}</span></td>
+      <td><strong>${(o.score||0).toFixed(0)}</strong></td>
+      <td title="${o.title||''}">${(o.title||'').substring(0,55)}${(o.title||'').length>55?'…':''}</td>
+      <td>$${(o.amazonPrice||0).toFixed(2)}</td>
+      <td>$${(o.ebayAvgSoldPrice||0).toFixed(2)}</td>
+      <td class="${(o.netProfit||0)>=0?'profit-pos':'profit-neg'}">$${(o.netProfit||0).toFixed(2)}</td>
+      <td class="${(o.roiPct||0)>=0?'profit-pos':'profit-neg'}">${(o.roiPct||0).toFixed(1)}%</td>
+      <td>${o.monthlyVolume||0}</td>
+      <td>${o.activeListings||0}</td>
+      <td>${(o.sellThroughRate||0).toFixed(0)}%</td>
+      <td style="font-size:0.7rem;color:var(--text-muted)">${o.matchMethod||''} (${((o.matchConfidence||0)*100).toFixed(0)}%)</td>
+    </tr>`).join('');
+
+  document.querySelector('#oppTable tbody').innerHTML = tbody || '<tr><td colspan="11" style="text-align:center;padding:30px;">No results</td></tr>';
+}
+
+// ══ Charts ═════════════════════════════════════════════
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function renderCharts(json) {
+  destroyCharts();
+  const opps = json.opportunities || [];
+
+  // 1. Net Profit by Tier
+  const tiers = ['Elite','Strong','Watch','Skip'];
+  const tierProfits = tiers.map(t => opps.filter(o=>o.tier===t).reduce((s,o)=>s+(o.netProfit||0),0));
+  const tierColors = ['#ffd700','#00c9a7','#7c5cfc','#4a5568'];
+  charts.p1 = new Chart(document.getElementById('chartProfit'), {
+    type:'bar',
+    data:{ labels:tiers, datasets:[{label:'Total Net Profit ($)', data:tierProfits, backgroundColor:tierColors, borderRadius:6 }]},
+    options:{ plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, ticks:{ callback:v=>'$'+v }, grid:{color:'rgba(255,255,255,0.05)'} }, x:{ grid:{display:false} } } }
+  });
+
+  // 2. ROI Distribution
+  const rois = opps.map(o => o.roiPct||0).sort((a,b)=>a-b);
+  charts.p2 = new Chart(document.getElementById('chartRoi'), {
+    type:'scatter',
+    data:{
+      datasets:[{
+        label:'ROI %', data:rois.map((r,i)=>({x:i, y:r})),
+        backgroundColor:rois.map(r => r>=25?'#22c55e':r>=15?'#f59e0b':r>=0?'#3b82f6':'#ef4444'),
+        pointRadius:5
+      },{label:'Elite Threshold (25%)', data:[{x:0,y:25},{x:rois.length-1,y:25}], borderColor:'#ffd700', borderWidth:1, borderDash:[5,5], pointRadius:0, showLine:true }]
+    },
+    options:{ plugins:{ legend:{display:true, labels:{color:'#8899b4',boxWidth:12}} },
+      scales:{ x:{ display:false }, y:{ ticks:{ callback:v=>v+'%' }, grid:{color:'rgba(255,255,255,0.05)'} } } }
+  });
+
+  // 3. Sell-Through vs Score
+  const stData = opps.map(o => ({ x:o.sellThroughRate||0, y:o.score||0, tier:o.tier }));
+  const tierST = {};
+  stData.forEach(d => { tierST[d.tier] = tierST[d.tier]||[]; tierST[d.tier].push(d); });
+  charts.p3 = new Chart(document.getElementById('chartSellThrough'), {
+    type:'scatter',
+    data:{ datasets:Object.entries(tierST).map(([t,pts]) => ({
+      label:t, data:pts, backgroundColor:tierColors[tiers.indexOf(t)], pointRadius:5
+    })) },
+    options:{ plugins:{ legend:{labels:{color:'#8899b4'}} },
+      scales:{ x:{ title:{display:true,text:'Sell-Through Rate (%)', color:'#8899b4'}, grid:{color:'rgba(255,255,255,0.05)'} },
+               y:{ title:{display:true,text:'Composite Score', color:'#8899b4'}, grid:{color:'rgba(255,255,255,0.05)'}, min:0, max:100 } } }
+  });
+
+  // 4. Tier Distribution
+  const tierCounts = tiers.map(t => opps.filter(o=>o.tier===t).length);
+  charts.p4 = new Chart(document.getElementById('chartTiers'), {
+    type:'doughnut',
+    data:{ labels:tiers, datasets:[{ data:tierCounts, backgroundColor:tierColors, borderWidth:0 }] },
+    options:{ plugins:{ legend:{ labels:{ color:'#8899b4' } } } }
+  });
+
+  // 5. Heatmap — group by category
+  if (document.getElementById('chartHeatmap')) {
+    const cats = {};
+    opps.forEach(o => {
+      const cat = (o.category||'Uncategorized').split('>')[0].trim();
+      cats[cat] = cats[cat] || { count:0, profit:0, roi:0, elite:0 };
+      cats[cat].count++;
+      cats[cat].profit += (o.netProfit||0);
+      cats[cat].roi += (o.roiPct||0);
+      if (o.tier==='Elite') cats[cat].elite++;
+    });
+    const catKeys = Object.keys(cats);
+    catKeys.sort((a,b) => cats[b].profit - cats[a].profit);
+    charts.p5 = new Chart(document.getElementById('chartHeatmap'), {
+      type:'bar',
+      data:{
+        labels:catKeys.slice(0,12),
+        datasets:[
+          {label:'Total Profit ($)', data:catKeys.slice(0,12).map(k=>parseFloat(cats[k].profit.toFixed(2))), backgroundColor:'#22c55e', borderRadius:4 },
+          {label:'Avg ROI (%)', data:catKeys.slice(0,12).map(k=>parseFloat((cats[k].roi/cats[k].count).toFixed(1))), backgroundColor:'#3b82f6', borderRadius:4 }
+        ]
+      },
+      options:{ indexAxis:'y', plugins:{ legend:{ labels:{ color:'#8899b4' } } },
+        scales:{ x:{ stacked:false, grid:{color:'rgba(255,255,255,0.05)'} }, y:{ grid:{display:false}, ticks:{color:'#8899b4'} } } }
+    });
+  }
+
+  // 6. Score Breakdown (stacked bar, top 10)
+  if (document.getElementById('chartBreakdown')) {
+    const top10 = [...opps].sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10);
+    charts.p6 = new Chart(document.getElementById('chartBreakdown'), {
+      type:'bar',
+      data:{
+        labels: top10.map(o => (o.title||'').substring(0,30)),
+        datasets:[
+          {label:'Margin (40%)', data:top10.map(o=>o.breakdown?.margin||0), backgroundColor:'#22c55e'},
+          {label:'Velocity (30%)', data:top10.map(o=>o.breakdown?.velocity||0), backgroundColor:'#f59e0b'},
+          {label:'Competition (15%)', data:top10.map(o=>o.breakdown?.competition||0), backgroundColor:'#3b82f6'},
+          {label:'Risk (15%)', data:top10.map(o=>o.breakdown?.risk||0), backgroundColor:'#ef4444'}
+        ]
+      },
+      options:{
+        plugins:{ legend:{ labels:{ color:'#8899b4' } }, tooltip:{ callbacks:{ footer: items => `Total: ${items.reduce((s,i)=>s+i.raw,0).toFixed(1)}` } } },
+        scales:{ x:{ stacked:true, grid:{color:'rgba(255,255,255,0.05)'}, max:100, ticks:{ callback:v=>v } }, y:{ stacked:true, grid:{display:false}, ticks:{color:'#8899b4'} } }
+      }
+    });
+  }
+}
+
+// ══ Tab switching ══════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab:nth-child(${{table:1,charts:2,heatmap:3,breakdown:4}[name]})`).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ══ Init ══════════════════════════════════════════════
+autoLoad();
+</script>
+</body>
+</html>

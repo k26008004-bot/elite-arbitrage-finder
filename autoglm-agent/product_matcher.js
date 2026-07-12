@@ -1,26 +1,32 @@
 /**
- * product_matcher.js — Three-Tier Cross-Platform Product Matcher
+ * product_matcher.js — Four-Tier Cross-Platform Product Matcher
  *
  * Matches Amazon products to eBay listings with confidence scoring:
  *   Level 1: UPC / EAN / ISBN exact match → 1.0 confidence (100%)
  *   Level 2: Title fuzzy match (fuzzball token_sort_ratio) → 0.85+ threshold
- *   Level 3: Brand + category co-occurrence verification
+ *   Level 3: Brand + category heuristic verification
+ *   Level 4: Image perceptual hash (pHash) → Hamming distance ≤ 10
  *
- * Dependency: npm install fuzzball
+ * Dependencies: npm install fuzzball sharp
  */
 
 const fuzzball = require('fuzzball');
+const ImageMatcher = require('./image_matcher');
 const config = require('./config');
 
 class ProductMatcher {
+  constructor() {
+    this.imageMatcher = new ImageMatcher();
+  }
   /**
    * Match an Amazon product against eBay sold listing results.
+   * Async — Level 4 (image matching) requires network/image processing.
    *
    * @param {Object} amazonProduct — from AmazonScraper.scrapeByAsin()
    * @param {Object} ebayData — from EbayScraper.fullMarketScan()
-   * @returns {Object} { matched, confidence, method, tier, details }
+   * @returns {Promise<Object>} { matched, confidence, method, tier, details }
    */
-  match(amazonProduct, ebayData) {
+  async match(amazonProduct, ebayData) {
     // ── Guard clauses ──────────────────────────────
     if (!ebayData || !ebayData.found || ebayData.captchaBlocked) {
       return {
@@ -36,6 +42,8 @@ class ProductMatcher {
       return { matched: false, confidence: 0, method: 'NONE', reason: 'NO_LISTINGS' };
     }
 
+    let bestFuzzyScore = 0;
+
     // ── Level 1: Exact identifier match ────────────
     const exactMatch = this._level1ExactMatch(amazonProduct, ebayData);
     if (exactMatch) {
@@ -50,6 +58,7 @@ class ProductMatcher {
 
     // ── Level 2: Title fuzzy match ────────────────
     const fuzzyResult = this._level2FuzzyMatch(amazonProduct, listings);
+    bestFuzzyScore = fuzzyResult.bestScore || 0;
     if (fuzzyResult.matched) {
       return {
         matched: true,
@@ -72,13 +81,33 @@ class ProductMatcher {
       };
     }
 
+    // ── Level 4: Image perceptual hash ────────────
+    if (amazonProduct.imageUrl && this.imageMatcher.enabled) {
+      const imageResult = await this.imageMatcher.findBestMatch(
+        amazonProduct.imageUrl,
+        ebayData.soldListings || []
+      );
+      if (imageResult && imageResult.matched) {
+        return {
+          matched: true,
+          confidence: imageResult.confidence * 0.85, // pHash confidence discounted
+          method: 'IMAGE_PHASH',
+          tier: 4,
+          details: {
+            hammingDistance: imageResult.distance,
+            rawConfidence: imageResult.confidence,
+          },
+        };
+      }
+    }
+
     // No match found
     return {
       matched: false,
       confidence: 0,
       method: 'NONE',
       reason: 'NO_MATCH',
-      bestFuzzyScore: fuzzyResult.bestScore || 0,
+      bestFuzzyScore,
     };
   }
 

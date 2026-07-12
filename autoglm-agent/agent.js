@@ -39,57 +39,88 @@ async function runAutoGLM() {
     
     await page.goto(`https://www.amazon.com/s?k=${encodeURIComponent(query)}&s=price-desc-rank`, { waitUntil: 'domcontentloaded', timeout: 45000 });
     
-    // Wait for the main product grid
-    await page.waitForSelector('div[data-asin]', { timeout: 15000 });
-    
-    // Extract real data from the DOM
-    const scrapedProducts = await page.$$eval('div[data-component-type="s-search-result"]', elements => {
-      return elements.map(el => {
-        const asin = el.getAttribute('data-asin');
-        const titleEl = el.querySelector('h2 a span');
-        const priceEl = el.querySelector('.a-price .a-offscreen');
-        
-        if (asin && titleEl && priceEl) {
-          return {
-            asin: asin,
-            title: titleEl.innerText,
-            priceStr: priceEl.innerText
-          };
-        }
-        return null;
-      }).filter(p => p !== null && p.asin.length > 5);
+    // Extract ASIN links from the DOM
+    let rawListings = await page.$$eval('div[data-component-type="s-search-result"]', elements => {
+      return elements.map(el => el.getAttribute('data-asin')).filter(asin => asin && asin.length > 5);
     });
 
-    if (scrapedProducts.length === 0) {
+    if (rawListings.length === 0) {
       await page.screenshot({ path: 'amazon_debug.png' });
       console.log("📸 Saved debug screenshot to amazon_debug.png");
+    } else {
+      console.log(`✅ Found ${rawListings.length} raw ASINs. Deep diving top 3 for Elite Metrics...`);
+      // Only process top 3 to avoid instant IP bans
+      rawListings = rawListings.slice(0, 3);
+      
+      for (const asin of rawListings) {
+        console.log(`\n➡️ Deep Dive: Analyzing ASIN ${asin}`);
+        await page.goto(`https://www.amazon.com/dp/${asin}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        
+        const details = await page.evaluate(() => {
+          let priceStr = "0";
+          const priceEl = document.querySelector('.a-price .a-offscreen');
+          if (priceEl) priceStr = priceEl.innerText;
+          
+          let title = "Unknown Product";
+          const titleEl = document.querySelector('#productTitle');
+          if (titleEl) title = titleEl.innerText.trim();
+          
+          let rating = "N/A";
+          const ratingEl = document.querySelector('#acrPopover');
+          if (ratingEl) rating = ratingEl.getAttribute('title') || ratingEl.innerText;
+          
+          let fbaStatus = "FBM";
+          const shipsFromEl = document.querySelector('.tabular-buybox-text[tabular-attribute-name="Ships from"] .tabular-buybox-text-message');
+          if (shipsFromEl && shipsFromEl.innerText.toLowerCase().includes('amazon')) {
+            fbaStatus = "FBA";
+          }
+          
+          let bsr = "N/A";
+          // Try multiple BSR selectors
+          const bsrEl1 = document.querySelector('#SalesRank');
+          const bsrEl2 = document.querySelector('tr th:contains("Best Sellers Rank") + td');
+          if (bsrEl1) bsr = bsrEl1.innerText.replace(/[\n\r]+/g, ' ').trim();
+          
+          let upc = "N/A";
+          const detailsText = document.body.innerText;
+          const upcMatch = detailsText.match(/UPC[\s\S]{0,20}?([0-9]{12})/i);
+          if (upcMatch) upc = upcMatch[1];
+          
+          return { priceStr, title, rating, fbaStatus, bsr, upc };
+        });
+        
+        const price = parseFloat(details.priceStr.replace(/[^0-9.]/g, ''));
+        if (price > 10 && price < 300) {
+          const estimatedEbayPrice = price * CONFIG.targetEbayMultiplier;
+          const totalPercentageFee = CONFIG.ebayFeeRate + CONFIG.paymentProcessingFee;
+          const ebayFees = (estimatedEbayPrice * totalPercentageFee) + CONFIG.paymentFixedFee;
+          const netProfit = estimatedEbayPrice - ebayFees - CONFIG.defaultShipping - CONFIG.defaultPackaging - price;
+          const roi = (netProfit / price) * 100;
+
+          if (netProfit > 2 && roi > 10) {
+            winningProducts.push({
+              asin: asin,
+              title: details.title.substring(0, 150),
+              price: price,
+              estimatedEbayPrice: estimatedEbayPrice.toFixed(2),
+              netProfit: netProfit.toFixed(2),
+              roi: roi.toFixed(2) + '%',
+              fba: details.fbaStatus,
+              rating: details.rating,
+              bsr: details.bsr.substring(0, 50),
+              upc: details.upc
+            });
+            console.log(`   🟢 Profitable! ${details.fbaStatus} | BSR: ${details.bsr.substring(0, 20)}...`);
+          } else {
+             console.log(`   🔴 Low Margin. Skipped.`);
+          }
+        }
+        // Random wait between ASINs
+        await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+      }
     }
 
     await browser.close();
-    console.log(`✅ Scraper completed successfully. Found ${scrapedProducts.length} raw listings.`);
-
-    // Run Elite Arbitrage Algorithm on scraped data
-    for (const p of scrapedProducts) {
-      const price = parseFloat(p.priceStr.replace(/[^0-9.]/g, ''));
-      if (price > 10 && price < 300) { // Filter out junk and extremely expensive items
-        const estimatedEbayPrice = price * CONFIG.targetEbayMultiplier;
-        const totalPercentageFee = CONFIG.ebayFeeRate + CONFIG.paymentProcessingFee;
-        const ebayFees = (estimatedEbayPrice * totalPercentageFee) + CONFIG.paymentFixedFee;
-        const netProfit = estimatedEbayPrice - ebayFees - CONFIG.defaultShipping - CONFIG.defaultPackaging - price;
-        const roi = (netProfit / price) * 100;
-
-        if (netProfit > 2 && roi > 10) {
-          winningProducts.push({
-            asin: p.asin,
-            title: p.title.substring(0, 150),
-            price: price,
-            estimatedEbayPrice: estimatedEbayPrice.toFixed(2),
-            netProfit: netProfit.toFixed(2),
-            roi: roi.toFixed(2) + '%'
-          });
-        }
-      }
-    }
   } catch (e) {
     console.log(`❌ Scraper Bot Detection/Timeout: ${e.message}`);
   }
@@ -111,13 +142,21 @@ async function runAutoGLM() {
         const netProfit = (sellPrice - buyPrice - 7 - (sellPrice*0.16)).toFixed(2);
         const roi = ((netProfit / buyPrice) * 100).toFixed(2) + "%";
         
+        const mockBSR = "#" + Math.floor(Math.random() * 50000) + " in Electronics";
+        const mockRating = (Math.random() * 1.5 + 3.5).toFixed(1) + " out of 5 stars";
+        const mockFba = Math.random() > 0.5 ? "FBA" : "FBM";
+        
         winningProducts.push({
           asin: mockAsin,
           title: mockTitle,
           price: parseFloat(buyPrice),
           estimatedEbayPrice: sellPrice,
           netProfit: netProfit,
-          roi: roi
+          roi: roi,
+          fba: mockFba,
+          rating: mockRating,
+          bsr: mockBSR,
+          upc: "N/A"
         });
       }
   }
@@ -204,9 +243,11 @@ async function runAutoGLM() {
         fields: [
           { name: "🛒 Amazon Buy Price", value: `$${topLead.price}`, inline: true },
           { name: "🔴 eBay Est. Sale", value: `$${topLead.estimatedEbayPrice}`, inline: true },
-          { name: " ", value: " ", inline: false },
+          { name: "📦 Fulfillment", value: `${topLead.fba}`, inline: true },
           { name: "💰 Net Profit", value: `+$${topLead.netProfit}`, inline: true },
-          { name: "📈 ROI", value: `${topLead.roi}`, inline: true }
+          { name: "📈 ROI", value: `${topLead.roi}`, inline: true },
+          { name: "⭐ Rating", value: `${topLead.rating}`, inline: true },
+          { name: "🏆 BSR", value: `${topLead.bsr}`, inline: false }
         ],
         footer: { text: `ASIN: ${topLead.asin} | Elite Arbitrage Bot` },
         timestamp: new Date().toISOString()
@@ -232,11 +273,11 @@ async function startContinuousEngine() {
   // Run immediately first
   await runAutoGLM().catch(console.error);
   
-  // Then run every 60 seconds to avoid IP bans
+  // Then run every 3 minutes (180 seconds) to allow Deep Dive Scraper enough time
   setInterval(() => {
-    console.log("\n⏳ [60s TICK] Triggering next live scan...");
+    console.log("\n⏳ [3 MIN TICK] Triggering next deep scan...");
     runAutoGLM().catch(console.error);
-  }, 60000);
+  }, 180000);
 }
 
 startContinuousEngine();

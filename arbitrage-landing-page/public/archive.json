@@ -1,5 +1,536 @@
 [
   {
+    "asin": "B03977X89",
+    "title": "Pro Portable SSD 2TB (Model 3977)",
+    "price": 98.79,
+    "estimatedEbayPrice": "158.06",
+    "netProfit": "26.98",
+    "roi": "27.31%",
+    "timestamp": "2026-07-12T11:05:44.585Z"
+  },
+  {
+    "asin": "B05823X221",
+    "title": "Smart Smart Watch Series 9 (Model 5823)",
+    "price": 45.89,
+    "estimatedEbayPrice": "73.42",
+    "netProfit": "8.78",
+    "roi": "19.13%",
+    "timestamp": "2026-07-12T11:05:44.585Z"
+  },
+  {
+    "asin": "B03256X191",
+    "title": "Advanced Noise Canceling Headphones (Model 3256)",
+    "price": 24.89,
+    "estimatedEbayPrice": "39.82",
+    "netProfit": "1.56",
+    "roi": "6.27%",
+    "timestamp": "2026-07-12T11:05:44.585Z"
+  },
+  {
+    "asin": "B07116X834",
+    "title": "NextGen Wireless Earbuds (Model 7116)",
+    "price": 63.72,
+    "estimatedEbayPrice": "101.95",
+    "netProfit": "14.92",
+    "roi": "23.41%",
+    "timestamp": "2026-07-12T11:05:18.533Z"
+  },
+  {
+    "asin": "B03504X437",
+    "title": "Max Wireless Earbuds (Model 3504)",
+    "price": 109.38,
+    "estimatedEbayPrice": "175.01",
+    "netProfit": "30.63",
+    "roi": "28.00%",
+    "timestamp": "2026-07-12T11:05:06.081Z"
+  },
+  {
+    "asin": "B07847X480",
+    "title": "Max Wireless Earbuds (Model 7847)",
+    "price": 23.78,
+    "estimatedEbayPrice": "38.05",
+    "netProfit": "1.18",
+    "roi": "4.96%",
+    "timestamp": "2026-07-12T11:05:06.081Z"
+  },
+  {
+    "asin": "B03726X674",
+    "title": "NextGen Gaming Mouse (Model 3726)",
+    "price": 95.9,
+    "estimatedEbayPrice": "153.44",
+    "netProfit": "25.99",
+    "roi": "27.10%",
+    "timestamp": "2026-07-12T11:05:06.081Z"
+  },
+  {
+    "asin": "B05029X502",
+    "title": "Max Coffee Maker (Model 5029)",
+    "price": 72.12,
+    "estimatedEbayPrice": "115.39",
+    "netProfit": "17.81",
+    "roi": "24.69%",
+    "timestamp": "2026-07-12T11:04:50.193Z"
+  },
+  {
+    "asin": "B07727X275",
+    "title": "Ultra Smart Watch Series 9 (Model 7727)",
+    "price": 36.97,
+    "estimatedEbayPrice": "59.15",
+    "netProfit": "5.72",
+    "roi": "15.47%",
+    "timestamp": "2026-07-12T11:04:50.193Z"
+  },
+  {
+    "asin": "B01859X609",
+    "title": "Ultra Mechanical Keyboard (Model 1859)",
+    "price": 107.04,
+    "estimatedEbayPrice": "171.26",
+    "netProfit": "29.82",
+    "roi": "27.86%",
+    "timestamp": "2026-07-12T11:04:20.934Z"
+  },
+  {
+    "asin": "B09610X128",
+    "title": "Elite Noise Canceling Headphones (Model 9610)",
+    "price": 95.91,
+    "estimatedEbayPrice": "153.46",
+    "netProfit": "26.00",
+    "roi": "27.11%",
+    "timestamp": "2026-07-12T11:04:20.934Z"
+  },
+  {
+    "asin": "B06577X227",
+    "title": "Pro Noise Canceling Headphones (Model 6577)",
+    "price": 56.86,
+    "estimatedEbayPrice": "90.98",
+    "netProfit": "12.56",
+    "roi": "22.09%",
+    "timestamp": "2026-07-12T11:04:19.181Z"
+  },
+  {
+    "asin": "B01274X538",
+    "title": "Max Wireless Earbuds (Model 1274)",
+    "price": 79.64,
+    "estimatedEbayPrice": "127.42",
+    "netProfit": "20.39",
+    "roi": "25.60%",
+    "timestamp": "2026-07-12T11:03:57.076Z"
+  },
+  {
+    "asin": "B02874X396",
+    "title": "Pro Smart Watch Series 9 (Model 2874)",
+    "price": 33.69,
+    "estimatedEbayPrice": "53.90",
+    "netProfit": "4.59",
+    "roi": "13.62%",
+    "timestamp": "2026-07-12T11:03:55.296Z"
+  },
+  {
+    "asin": "B09114X420",
+    "title": "NextGen Coffee Maker (Model 9114)",
+    "price": 24.07,
+    "estimatedEbayPrice": "38.51",
+    "netProfit": "1.28",
+    "roi": "5.32%",
+    "timestamp": "2026-07-12T11:03:55.296Z"
+  },
+  {
+    "asin": "B09356X812",
+    "title": "Pro Portable SSD 2TB (Model 9356)",
+    "price": 74.95,
+    "estimatedEbayPrice": "119.92",
+    "netProfit": "18.78",
+    "roi": "25.06%",
+    "timestamp": "2026-07-12T11:03:55.296Z"
+  },
+  {
+    "asin": "B07893X616",
+    "title": "Premium Smart Watch Series 9 (Model 7893)",
+    "price": 43.93,
+    "estimatedEbayPrice": "70.29",
+    "netProfit": "8.11",
+    "roi": "18.46%",
+    "timestamp": "2026-07-12T11:03:55.274Z"
+  },
+  {
+    "asin": "B09824X464",
+    "title": "Premium Coffee Maker (Model 9824)",
+    "price": 60.87,
+    "estimatedEbayPrice": "97.39",
+    "netProfit": "13.94",
+    "roi": "22.90%",
+    "timestamp": "2026-07-12T11:03:09.324Z"
+  },
+  {
+    "asin": "B02855X656",
+    "title": "Advanced Gaming Mouse (Model 2855)",
+    "price": 93.88,
+    "estimatedEbayPrice": "150.21",
+    "netProfit": "25.30",
+    "roi": "26.95%",
+    "timestamp": "2026-07-12T11:03:09.324Z"
+  },
+  {
+    "asin": "B01841X206",
+    "title": "Pro Portable SSD 2TB (Model 1841)",
+    "price": 87.42,
+    "estimatedEbayPrice": "139.87",
+    "netProfit": "23.07",
+    "roi": "26.39%",
+    "timestamp": "2026-07-12T11:02:24.845Z"
+  },
+  {
+    "asin": "B04840X188",
+    "title": "Advanced Wireless Earbuds (Model 4840)",
+    "price": 37.57,
+    "estimatedEbayPrice": "60.11",
+    "netProfit": "5.92",
+    "roi": "15.76%",
+    "timestamp": "2026-07-12T11:02:11.542Z"
+  },
+  {
+    "asin": "B08346X661",
+    "title": "Premium Wireless Earbuds (Model 8346)",
+    "price": 59.44,
+    "estimatedEbayPrice": "95.10",
+    "netProfit": "13.44",
+    "roi": "22.61%",
+    "timestamp": "2026-07-12T11:02:11.542Z"
+  },
+  {
+    "asin": "B08305X845",
+    "title": "Pro Noise Canceling Headphones (Model 8305)",
+    "price": 28.51,
+    "estimatedEbayPrice": "45.62",
+    "netProfit": "2.81",
+    "roi": "9.86%",
+    "timestamp": "2026-07-12T11:01:31.458Z"
+  },
+  {
+    "asin": "B08404X853",
+    "title": "Premium Coffee Maker (Model 8404)",
+    "price": 84.88,
+    "estimatedEbayPrice": "135.81",
+    "netProfit": "22.20",
+    "roi": "26.15%",
+    "timestamp": "2026-07-12T11:01:09.610Z"
+  },
+  {
+    "asin": "B03938X156",
+    "title": "Elite Coffee Maker (Model 3938)",
+    "price": 98.01,
+    "estimatedEbayPrice": "156.82",
+    "netProfit": "26.72",
+    "roi": "27.26%",
+    "timestamp": "2026-07-12T11:01:09.610Z"
+  },
+  {
+    "asin": "B01730X246",
+    "title": "Ultra Portable SSD 2TB (Model 1730)",
+    "price": 76.27,
+    "estimatedEbayPrice": "122.03",
+    "netProfit": "19.24",
+    "roi": "25.23%",
+    "timestamp": "2026-07-12T11:01:04.915Z"
+  },
+  {
+    "asin": "B03506X769",
+    "title": "Advanced Smart Watch Series 9 (Model 3506)",
+    "price": 88.34,
+    "estimatedEbayPrice": "141.34",
+    "netProfit": "23.39",
+    "roi": "26.48%",
+    "timestamp": "2026-07-12T11:01:04.915Z"
+  },
+  {
+    "asin": "B02336X523",
+    "title": "Smart Gaming Mouse (Model 2336)",
+    "price": 67.99,
+    "estimatedEbayPrice": "108.78",
+    "netProfit": "16.39",
+    "roi": "24.11%",
+    "timestamp": "2026-07-12T11:01:04.915Z"
+  },
+  {
+    "asin": "B08127X627",
+    "title": "Premium Coffee Maker (Model 8127)",
+    "price": 59.92,
+    "estimatedEbayPrice": "95.87",
+    "netProfit": "13.61",
+    "roi": "22.71%",
+    "timestamp": "2026-07-12T11:00:27.727Z"
+  },
+  {
+    "asin": "B01037X456",
+    "title": "Ultra Security Camera 4K (Model 1037)",
+    "price": 31.37,
+    "estimatedEbayPrice": "50.19",
+    "netProfit": "3.79",
+    "roi": "12.08%",
+    "timestamp": "2026-07-12T11:00:27.727Z"
+  },
+  {
+    "asin": "B08092X576",
+    "title": "Elite Noise Canceling Headphones (Model 8092)",
+    "price": 67.14,
+    "estimatedEbayPrice": "107.42",
+    "netProfit": "16.09",
+    "roi": "23.96%",
+    "timestamp": "2026-07-12T11:00:07.885Z"
+  },
+  {
+    "asin": "B03592X743",
+    "title": "Advanced Coffee Maker (Model 3592)",
+    "price": 114.33,
+    "estimatedEbayPrice": "182.93",
+    "netProfit": "32.33",
+    "roi": "28.28%",
+    "timestamp": "2026-07-12T11:00:07.885Z"
+  },
+  {
+    "asin": "B02708X887",
+    "title": "Pro Noise Canceling Headphones (Model 2708)",
+    "price": 39.5,
+    "estimatedEbayPrice": "63.20",
+    "netProfit": "6.59",
+    "roi": "16.68%",
+    "timestamp": "2026-07-12T11:00:04.932Z"
+  },
+  {
+    "asin": "B01398X643",
+    "title": "Max Portable SSD 2TB (Model 1398)",
+    "price": 75.81,
+    "estimatedEbayPrice": "121.30",
+    "netProfit": "19.08",
+    "roi": "25.17%",
+    "timestamp": "2026-07-12T11:00:04.932Z"
+  },
+  {
+    "asin": "B08404X892",
+    "title": "Smart Coffee Maker (Model 8404)",
+    "price": 38.34,
+    "estimatedEbayPrice": "61.34",
+    "netProfit": "6.19",
+    "roi": "16.15%",
+    "timestamp": "2026-07-12T10:59:29.081Z"
+  },
+  {
+    "asin": "B01772X126",
+    "title": "NextGen Wireless Earbuds (Model 1772)",
+    "price": 66.16,
+    "estimatedEbayPrice": "105.86",
+    "netProfit": "15.76",
+    "roi": "23.82%",
+    "timestamp": "2026-07-12T10:59:29.081Z"
+  },
+  {
+    "asin": "B04839X871",
+    "title": "Premium Security Camera 4K (Model 4839)",
+    "price": 41.74,
+    "estimatedEbayPrice": "66.78",
+    "netProfit": "7.36",
+    "roi": "17.63%",
+    "timestamp": "2026-07-12T10:59:12.066Z"
+  },
+  {
+    "asin": "B09204X354",
+    "title": "Smart Wireless Earbuds (Model 9204)",
+    "price": 68.42,
+    "estimatedEbayPrice": "109.47",
+    "netProfit": "16.53",
+    "roi": "24.16%",
+    "timestamp": "2026-07-12T10:59:04.911Z"
+  },
+  {
+    "asin": "B01798X915",
+    "title": "Advanced Portable SSD 2TB (Model 1798)",
+    "price": 118.61,
+    "estimatedEbayPrice": "189.78",
+    "netProfit": "33.81",
+    "roi": "28.51%",
+    "timestamp": "2026-07-12T10:58:28.403Z"
+  },
+  {
+    "asin": "B07826X953",
+    "title": "Pro Noise Canceling Headphones (Model 7826)",
+    "price": 51.26,
+    "estimatedEbayPrice": "82.02",
+    "netProfit": "10.64",
+    "roi": "20.76%",
+    "timestamp": "2026-07-12T10:58:09.803Z"
+  },
+  {
+    "asin": "B07503X878",
+    "title": "Advanced Mechanical Keyboard (Model 7503)",
+    "price": 110.48,
+    "estimatedEbayPrice": "176.77",
+    "netProfit": "31.01",
+    "roi": "28.07%",
+    "timestamp": "2026-07-12T10:58:07.107Z"
+  },
+  {
+    "asin": "B06622X540",
+    "title": "NextGen Gaming Mouse (Model 6622)",
+    "price": 99.2,
+    "estimatedEbayPrice": "158.72",
+    "netProfit": "27.12",
+    "roi": "27.34%",
+    "timestamp": "2026-07-12T10:58:07.107Z"
+  },
+  {
+    "asin": "B03200X871",
+    "title": "Pro Gaming Mouse (Model 3200)",
+    "price": 42.72,
+    "estimatedEbayPrice": "68.35",
+    "netProfit": "7.69",
+    "roi": "18.00%",
+    "timestamp": "2026-07-12T10:58:07.107Z"
+  },
+  {
+    "asin": "B08522X998",
+    "title": "Smart Wireless Earbuds (Model 8522)",
+    "price": 30.13,
+    "estimatedEbayPrice": "48.21",
+    "netProfit": "3.37",
+    "roi": "11.18%",
+    "timestamp": "2026-07-12T10:57:19.728Z"
+  },
+  {
+    "asin": "B01772X119",
+    "title": "Max Gaming Mouse (Model 1772)",
+    "price": 59.99,
+    "estimatedEbayPrice": "95.98",
+    "netProfit": "13.63",
+    "roi": "22.72%",
+    "timestamp": "2026-07-12T10:57:19.728Z"
+  },
+  {
+    "asin": "B08063X137",
+    "title": "Elite Portable SSD 2TB (Model 8063)",
+    "price": 20.53,
+    "estimatedEbayPrice": "32.85",
+    "netProfit": "0.06",
+    "roi": "0.29%",
+    "timestamp": "2026-07-12T10:57:19.726Z"
+  },
+  {
+    "asin": "B03987X177",
+    "title": "Pro Coffee Maker (Model 3987)",
+    "price": 115.62,
+    "estimatedEbayPrice": "184.99",
+    "netProfit": "32.77",
+    "roi": "28.34%",
+    "timestamp": "2026-07-12T10:57:08.987Z"
+  },
+  {
+    "asin": "B09868X176",
+    "title": "Pro Portable SSD 2TB (Model 9868)",
+    "price": 110.59,
+    "estimatedEbayPrice": "176.94",
+    "netProfit": "31.04",
+    "roi": "28.07%",
+    "timestamp": "2026-07-12T10:57:08.987Z"
+  },
+  {
+    "asin": "B02318X455",
+    "title": "Premium Wireless Earbuds (Model 2318)",
+    "price": 46.03,
+    "estimatedEbayPrice": "73.65",
+    "netProfit": "8.84",
+    "roi": "19.20%",
+    "timestamp": "2026-07-12T10:57:08.987Z"
+  },
+  {
+    "asin": "B02454X666",
+    "title": "Smart Noise Canceling Headphones (Model 2454)",
+    "price": 94.11,
+    "estimatedEbayPrice": "150.58",
+    "netProfit": "25.38",
+    "roi": "26.97%",
+    "timestamp": "2026-07-12T10:57:05.561Z"
+  },
+  {
+    "asin": "B02849X266",
+    "title": "Elite Gaming Mouse (Model 2849)",
+    "price": 33.51,
+    "estimatedEbayPrice": "53.62",
+    "netProfit": "4.53",
+    "roi": "13.52%",
+    "timestamp": "2026-07-12T10:56:10.930Z"
+  },
+  {
+    "asin": "B02125X456",
+    "title": "Ultra Gaming Mouse (Model 2125)",
+    "price": 23.85,
+    "estimatedEbayPrice": "38.16",
+    "netProfit": "1.20",
+    "roi": "5.03%",
+    "timestamp": "2026-07-12T10:56:10.930Z"
+  },
+  {
+    "asin": "B08432X404",
+    "title": "NextGen Gaming Mouse (Model 8432)",
+    "price": 102.93,
+    "estimatedEbayPrice": "164.69",
+    "netProfit": "28.41",
+    "roi": "27.60%",
+    "timestamp": "2026-07-12T10:56:10.930Z"
+  },
+  {
+    "asin": "B01291X819",
+    "title": "Pro Noise Canceling Headphones (Model 1291)",
+    "price": 67.58,
+    "estimatedEbayPrice": "108.13",
+    "netProfit": "16.25",
+    "roi": "24.05%",
+    "timestamp": "2026-07-12T10:56:10.773Z"
+  },
+  {
+    "asin": "B07535X743",
+    "title": "Max Noise Canceling Headphones (Model 7535)",
+    "price": 37.73,
+    "estimatedEbayPrice": "60.37",
+    "netProfit": "5.98",
+    "roi": "15.85%",
+    "timestamp": "2026-07-12T10:56:10.773Z"
+  },
+  {
+    "asin": "B08273X509",
+    "title": "Premium Coffee Maker (Model 8273)",
+    "price": 50.96,
+    "estimatedEbayPrice": "81.54",
+    "netProfit": "10.53",
+    "roi": "20.66%",
+    "timestamp": "2026-07-12T10:56:10.773Z"
+  },
+  {
+    "asin": "B03859X634",
+    "title": "Premium Smart Watch Series 9 (Model 3859)",
+    "price": 54.95,
+    "estimatedEbayPrice": "87.92",
+    "netProfit": "11.90",
+    "roi": "21.66%",
+    "timestamp": "2026-07-12T10:55:09.810Z"
+  },
+  {
+    "asin": "B03227X203",
+    "title": "NextGen Smart Watch Series 9 (Model 3227)",
+    "price": 31.24,
+    "estimatedEbayPrice": "49.98",
+    "netProfit": "3.74",
+    "roi": "11.97%",
+    "timestamp": "2026-07-12T10:55:09.810Z"
+  },
+  {
+    "asin": "B02139X98",
+    "title": "Advanced Portable SSD 2TB (Model 2139)",
+    "price": 46.55,
+    "estimatedEbayPrice": "74.48",
+    "netProfit": "9.01",
+    "roi": "19.36%",
+    "timestamp": "2026-07-12T10:55:09.810Z"
+  },
+  {
     "asin": "B01384X33",
     "title": "Pro Coffee Maker (Model 1384)",
     "price": 76.58,

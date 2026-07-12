@@ -25,7 +25,12 @@
 const { chromium } = require('playwright-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
+// Load .env file if present
+const dotenv = require('dotenv');
+try { dotenv.config({ path: require('path').join(__dirname, '..', '.env') }); } catch {}
+
 const config = require('./config');
+const { AntiDetectionManager, DelayEngine } = require('./anti_detection');
 const AmazonScraper = require('./amazon_scraper');
 const EbayScraper = require('./ebay_scraper');
 const EbaySimulator = require('./simulator');
@@ -45,9 +50,7 @@ chromium.use(StealthPlugin());
 class ArbitrageEngine {
   constructor() {
     this.browser = null;
-    this.context = null;
-    this.amazonScraper = null;
-    this.ebayScraper = null;
+    this.antiDetect = null;
     this.simulator = new EbaySimulator();
     this.matcher = new ProductMatcher();
     this.calculator = new ProfitCalculator();
@@ -84,10 +87,21 @@ class ArbitrageEngine {
     // Init Firebase (optional — engine works without it)
     await this.firebase.init();
 
-    // Launch Playwright with anti-detection
-    console.log('[Browser] Launching Playwright (stealth mode)...');
+    // Init Anti-Detection Manager with proxies from .env
+    const proxyList = process.env.PROXY_LIST
+      ? process.env.PROXY_LIST.split(',').map(s => s.trim()).filter(Boolean)
+      : config.PROXIES || [];
+
+    this.antiDetect = new AntiDetectionManager({
+      proxies: proxyList,
+      captchaKey: process.env.CAPTCHA_API_KEY || process.env.TWOCAPTCHA_API_KEY || '',
+      stateDir: require('path').join(__dirname, '..', 'logs', 'anti_detection'),
+    });
+
+    // Launch Playwright (military-grade stealth via anti-detection module)
+    console.log('[Browser] Launching Playwright with 6-layer anti-detection...');
     this.browser = await chromium.launch({
-      headless: config.ENV === 'production',   // Show browser in dev
+      headless: config.ENV === 'production',
       args: [
         '--disable-blink-features=AutomationControlled',
         '--no-sandbox',
@@ -97,23 +111,8 @@ class ArbitrageEngine {
       ],
     });
 
-    this.context = await this.browser.newContext({
-      userAgent: this._randomUA(),
-      viewport: { width: 1920, height: 1080 },
-      locale: 'en-US',
-    });
-
-    // Inject stealth scripts
-    await this.context.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    });
-
-    const page = await this.context.newPage();
-    this.amazonScraper = new AmazonScraper(page);
-    this.ebayScraper = new EbayScraper(page);
-
+    // Print anti-detection status
+    console.log(this.antiDetect.status());
     console.log('[Browser] Ready.\n');
   }
 
@@ -152,8 +151,8 @@ class ArbitrageEngine {
         this.stats.errors.push({ asin, error: err.message });
       }
 
-      // ── Rate limiting between products ────────
-      await this._delay(2000, 4000);
+      // ── Rate limiting between products (human-like gamma delay) ────────
+      await new Promise(r => setTimeout(r, DelayEngine.productGap()));
     }
 
     this.stats.durationMs = Date.now() - this.stats.startTime;
@@ -167,76 +166,93 @@ class ArbitrageEngine {
 
   /**
    * Process a single product through the full pipeline.
+   * Each platform gets its own anti-detection stealth context (separate proxy + fingerprint).
    */
   async _processProduct(asin) {
-    // ════ PHASE 1: Amazon scrape ════════════════
-    console.log(`  🔍 Phase 1/4: Scraping Amazon...`);
-    const amazonData = await this.amazonScraper.scrapeByAsin(asin);
+    let amazonData;
+
+    // ════ PHASE 1: Amazon scrape (safeScrape wrapper) ════
+    console.log(`  🔍 Phase 1/4: Scraping Amazon (stealth context)...`);
+
+    const amazonSession = await this.antiDetect.safeScrape(
+      this.browser,
+      'amazon.com',
+      async (page) => {
+        const amazonScraper = new AmazonScraper(page);
+        return await amazonScraper.scrapeByAsin(asin);
+      }
+    );
+
+    amazonData = amazonSession.result;
     this.stats.totalScanned++;
 
-    if (amazonData.isCaptcha) {
-      console.log('  ⚠️ Amazon CAPTCHA detected — skipping');
-      return this._failedResult(asin, 'AMAZON_CAPTCHA');
-    }
-
-    if (!amazonData.title) {
-      console.log('  ⚠️ No product title extracted — product page may be inaccessible');
-      return this._failedResult(asin, 'NO_AMAZON_DATA');
+    if (!amazonData || amazonData.isCaptcha || !amazonData.title) {
+      const reason = amazonData?.isCaptcha ? 'AMAZON_CAPTCHA' : 'NO_AMAZON_DATA';
+      console.log(`  ⚠️ ${reason === 'AMAZON_CAPTCHA' ? 'CAPTCHA (solver attempted)' : 'No product data'}`);
+      return this._failedResult(asin, reason);
     }
 
     console.log(`  ✅ Amazon: "${amazonData.title.substring(0, 50)}..." — $${amazonData.price}`);
 
     // Save to Firebase
     await this.firebase.upsertProduct(amazonData);
-    await this.firebase.recordPriceSnapshot('amazon', {
-      asin,
-      price: amazonData.price,
-      listPrice: amazonData.listPrice,
-    });
+    await this.firebase.recordPriceSnapshot('amazon', { asin, price: amazonData.price, listPrice: amazonData.listPrice });
 
-    // ════ PHASE 2: eBay market scan ════════════
-    console.log(`  🔍 Phase 2/4: Searching eBay market data...`);
+    // ════ PHASE 2: eBay market scan (safeScrape wrapper) ════
+    console.log(`  🔍 Phase 2/4: Searching eBay market data (stealth context)...`);
 
     let ebayData;
     const useRealEbay = !config.DRY_RUN;
 
     if (useRealEbay) {
-      ebayData = await this.ebayScraper.fullMarketScan(
-        amazonData.title,
-        amazonData.upc || amazonData.ean || amazonData.isbn
-      );
+      // Real eBay scraping via safeScrape with separate stealth context
+      try {
+        const ebaySession = await this.antiDetect.safeScrape(
+          this.browser,
+          'ebay.com',
+          async (page) => {
+            const ebayScraper = new EbayScraper(page);
+            return await ebayScraper.fullMarketScan(
+              amazonData.title,
+              amazonData.upc || amazonData.ean || amazonData.isbn
+            );
+          }
+        );
+        ebayData = ebaySession.result;
+      } catch (eBayErr) {
+        console.log(`  ⚠️ eBay scrape failed (${eBayErr.message}) — falling back to simulator`);
+        ebayData = null;
+      }
 
-      if (ebayData.captchaBlocked) {
-        console.log('  ⚠️ eBay CAPTCHA blocked — falling back to simulator');
+      // Fallback to simulator if eBay blocked/failed
+      if (!ebayData || ebayData.captchaBlocked || !ebayData.found) {
+        if (ebayData?.captchaBlocked) {
+          console.log('  ⚠️ eBay CAPTCHA blocked — using simulator');
+        }
         ebayData = this.simulator.simulate(amazonData);
+        ebayData.source = 'simulator_fallback';
       }
     } else {
-      // Dev mode: use simulator
       ebayData = this.simulator.simulate(amazonData);
     }
 
-    // eBay price snapshot
     if (ebayData.avgSoldPrice) {
-      await this.firebase.recordPriceSnapshot('ebay', {
-        asin,
-        price: ebayData.avgSoldPrice,
-        shippingCost: ebayData.shippingCostAvg || 0,
-      });
+      await this.firebase.recordPriceSnapshot('ebay', { asin, price: ebayData.avgSoldPrice, shippingCost: ebayData.shippingCostAvg || 0 });
     }
 
     if (!ebayData.found || !ebayData.avgSoldPrice) {
-      console.log('  ℹ️ No eBay market data available — skipping');
+      console.log('  ℹ️ No eBay market data available');
       return this._failedResult(asin, 'NO_EBAY_DATA');
     }
 
     console.log(`  ✅ eBay: Avg Sold $${ebayData.avgSoldPrice} | Median $${ebayData.medianSoldPrice} | ${ebayData.monthlyVolume} sold/mo | ${ebayData.activeListings} active`);
 
     // ════ PHASE 3: Match + Profit ══════════════
-    console.log(`  🔍 Phase 3/4: Matching & calculating profit...`);
+    console.log(`  🔍 Phase 3/4: Matching & profit calculation...`);
 
     const match = this.matcher.match(amazonData, ebayData);
     if (!match.matched) {
-      console.log(`  ⚠️ No match (best fuzzy score: ${match.bestFuzzyScore || 0}%)`);
+      console.log(`  ⚠️ No match (best fuzzy: ${match.bestFuzzyScore || 0}%)`);
       return this._failedResult(asin, 'NO_MATCH', {
         bestFuzzyScore: match.bestFuzzyScore,
         candidates: this.matcher.getCandidates(amazonData, ebayData.soldListings, 3),
@@ -356,6 +372,9 @@ class ArbitrageEngine {
       errors: this.stats.errors,
       durationMs: this.stats.durationMs,
     });
+
+    // Print final anti-detection health
+    console.log(this.antiDetect.status());
   }
 
   // ═══════════════════════════════════════════════════════
@@ -391,22 +410,6 @@ class ArbitrageEngine {
       case 'Watch':  this.stats.watchCount++;  break;
       case 'Skip':   this.stats.skipCount++;   break;
     }
-  }
-
-  async _delay(minMs, maxMs) {
-    const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-    await new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  _randomUA() {
-    const ua = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
-    ];
-    return ua[Math.floor(Math.random() * ua.length)];
   }
 
   // ═══════════════════════════════════════════════════════

@@ -26,12 +26,16 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "dotenv": "^16.4.0",
     "firebase-admin": "^12.0.0",
     "fuzzball": "^2.1.2",
     "minimist": "^1.2.8",
     "playwright": "^1.44.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "optionalDependencies": {
+    "2captcha": "^3.0.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0"

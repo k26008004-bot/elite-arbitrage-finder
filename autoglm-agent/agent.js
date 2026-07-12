@@ -39,6 +39,7 @@ const ProfitCalculator = require('./profit_calculator');
 const ScoringEngine = require('./scoring_engine');
 const FirebaseService = require('./firebase_service');
 const DiscordWebhook = require('./discord_webhook');
+const AILister = require('./ai_lister');
 
 // ── Apply stealth plugin ────────────────────────────────
 chromium.use(StealthPlugin());
@@ -285,6 +286,11 @@ class ArbitrageEngine {
     this.stats.matchesFound++;
     this._incrementTier(scoring.tier);
 
+    let aiListing = null;
+    if (scoring.tier === 'Elite') {
+      aiListing = await AILister.generateListing(amazonData);
+    }
+
     // ── Build opportunity record ────────────────
     const oppRecord = {
       asin,
@@ -309,6 +315,7 @@ class ArbitrageEngine {
       ebay: ebayData,
       profit,
       scoring,
+      aiListing,
     };
 
     // Save to Firebase
@@ -526,6 +533,7 @@ class ArbitrageEngine {
             total: p.fees?.totalFees,
           },
           flags: s.flags || [],
+          aiListing: r.aiListing || null,
           category: a.category || '',
           rating: a.rating || null,
           reviewCount: a.reviewCount || 0,

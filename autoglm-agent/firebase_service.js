@@ -31,18 +31,34 @@ class FirebaseService {
     if (this.initialized) return;
 
     try {
+      // Check if we have credentials in the environment
+      const hasCreds = serviceAccountPath || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_PROJECT_ID;
+      
+      if (!hasCreds) {
+        console.warn('[Firebase] ⚠️ No credentials found. Running in OFFLINE mode.');
+        this.initialized = false;
+        this.db = null;
+        return;
+      }
+
       if (admin.apps.length === 0) {
         const options = {};
         if (serviceAccountPath) {
           options.credential = admin.credential.cert(serviceAccountPath);
+        } else if (process.env.FIREBASE_PROJECT_ID) {
+          options.projectId = process.env.FIREBASE_PROJECT_ID;
         }
         // Otherwise uses GOOGLE_APPLICATION_CREDENTIALS env var
         admin.initializeApp(options);
       }
 
       this.db = admin.firestore();
+      
+      // Perform a quick test query to ensure auth is valid
+      await this.db.collection(this._collections.PRODUCTS).limit(1).get();
+      
       this.initialized = true;
-      console.log('[Firebase] Connected successfully');
+      console.log('[Firebase] ✅ Connected successfully');
     } catch (err) {
       console.error(`[Firebase] Init failed: ${err.message}`);
       // Run in offline mode — products stored locally, no Firestore writes
